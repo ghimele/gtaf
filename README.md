@@ -12,10 +12,10 @@ It combines:
 ---
 
 ## Core Idea
-Node = identity
-Atom = immutable typed value
-Property = Node → Atom pointer
-Edge = Node → Node relationship
+- Node = identity
+- Atom = immutable typed value
+- Property = Node → Atom pointer
+- Edge = Node → Node relationship
 
 
 Values never mutate. Updates create new Atoms.
