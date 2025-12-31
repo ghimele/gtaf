@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 project(GTAF_Framework VERSION 1.1 LANGUAGES CXX)
 
 configure_file(
-  ${CMAKE_SOURCE_DIR}/version.h.in
+  ${CMAKE_SOURCE_DIR}/include/version.h.in
   ${CMAKE_BINARY_DIR}/generated/version.h
   @ONLY
 )
