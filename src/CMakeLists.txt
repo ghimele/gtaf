@@ -1,6 +1,17 @@
 cmake_minimum_required(VERSION 3.15)
 project(GTAF_Framework VERSION 1.1 LANGUAGES CXX)
 
+configure_file(
+  ${CMAKE_SOURCE_DIR}/version.h.in
+  ${CMAKE_BINARY_DIR}/generated/version.h
+  @ONLY
+)
+
+target_include_directories(gtaf
+  PUBLIC
+    ${CMAKE_BINARY_DIR}/generated
+)
+
 # --- 1. Global Settings ---
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -33,3 +44,4 @@ endif()
 
 # --- 6. Success Message ---
 message(STATUS "GTAF Framework Build System Configured.")
+message(STATUS "GTAF build version: ${GIT_VERSION}")
