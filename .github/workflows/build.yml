@@ -30,7 +30,7 @@ jobs:
 
       - name: Configure CMake
         run: |
-          cmake -S gtaf/src -B build \
+          cmake -S ./src -B build \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
 
