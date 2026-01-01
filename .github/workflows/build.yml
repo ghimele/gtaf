@@ -11,108 +11,12 @@ on:
     branches: [ "main"]
 
 jobs:
+
   build-linux:
-    name: Build (Linux)
-    runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        build_type: [Release]
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            cmake \
-            ninja-build \
-            clang
-
-      - name: Configure CMake
-        run: |
-          cmake -S ./src -B build \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DGTAF_FULL_VERSION=${{ env.GTAF_FULL_VERSION }}
-
-      - name: Build
-        run: |
-          cmake --build build --config ${{ matrix.build_type }}
-
-      - name: Run tests
-        if: always()
-        run: |
-          if [ -f build/CTestTestfile.cmake ]; then
-            ctest --test-dir build --output-on-failure
-          else
-            echo "No tests found, skipping."
-          fi
-
-      - name: Package artifacts
-        run: |
-          mkdir -p artifacts
-          cp -r build artifacts/build
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: gtaf-build-linux-${{ env.GTAF_FULL_VERSION }}
-          path: artifacts
-
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      GTAF_FULL_VERSION: ${{ env.GTAF_FULL_VERSION }}
   build-windows:
-    name: Build (Windows)
-    runs-on: windows-latest
-
-    strategy:
-      matrix:
-        build_type: [Release]
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install dependencies
-        run: |
-          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
-          choco install ninja -y
-
-      - name: Configure CMake
-        run: |
-          cmake -S ./src -B build \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DGTAF_FULL_VERSION=${{ env.GTAF_FULL_VERSION }}
-
-      - name: Build
-        run: |
-          cmake --build build --config ${{ matrix.build_type }}
-
-      - name: Run tests
-        if: always()
-        run: |
-          if (Test-Path build/CTestTestfile.cmake) {
-            ctest --test-dir build --output-on-failure
-          } else {
-            Write-Host "No tests found, skipping."
-          }
-        shell: pwsh
-
-      - name: Package artifacts
-        run: |
-          mkdir artifacts
-          Copy-Item -Recurse -Force build artifacts/build
-        shell: pwsh
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: gtaf-build-windows-${{ env.GTAF_FULL_VERSION }}
-          path: artifacts
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      GTAF_FULL_VERSION: ${{ env.GTAF_FULL_VERSION }}
