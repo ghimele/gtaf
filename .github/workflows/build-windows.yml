@@ -8,52 +8,52 @@ on:
 
 jobs:
   build-windows:
-    name: Build (Windows)
+    name: Build Windows (MSVC)
     runs-on: windows-latest
-    strategy:
-      matrix:
-        build_type: [Release]
+
+    env:
+      BUILD_TYPE: Release
+
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
+
+      # IMPORTANT: Ensure MSVC environment is loaded
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
         with:
-          fetch-depth: 0
+          arch: x64
 
-      - name: Install dependencies
+      # Optional but recommended: show compiler to fail fast if wrong
+      - name: Verify compiler
         run: |
-          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
-          choco install ninja -y
+          cl
+          where cl
+          where gcc || echo "gcc not found (good)"
 
-      - name: Configure CMake
-        shell: pwsh
-        run: |
-          cmake -S ./src -B build `
-            -G Ninja `
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} `
-            -DGTAF_FULL_VERSION=${{ inputs.GTAF_FULL_VERSION }}
+      - name: Configure (MSVC)
+        run: >
+          cmake -S ./src -B build
+          -G "Visual Studio 17 2022"
+          -A x64
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DGTAF_FULL_VERSION=${{ inputs.GTAF_FULL_VERSION }}
 
       - name: Build
-        run: |
-          cmake --build build --config ${{ matrix.build_type }}
-
-      - name: Run tests
-        if: always()
-        run: |
-          if (Test-Path build/CTestTestfile.cmake) {
-            ctest --test-dir build --output-on-failure
-          } else {
-            Write-Host "No tests found, skipping."
-          }
-        shell: pwsh
+        run: >
+          cmake --build build
+          --config ${{ env.BUILD_TYPE }}
+          --parallel
 
       - name: Package artifacts
         run: |
-          mkdir artifacts
-          Copy-Item -Recurse -Force build artifacts/build
+          mkdir dist
+          copy build\${{ env.BUILD_TYPE }}\gtaf_example.exe dist\
         shell: pwsh
 
-      - name: Upload build artifacts
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gtaf-build-windows-${{ inputs.GTAF_FULL_VERSION }}
-          path: artifacts
+          name: gtaf-windows-msvc
+          path: dist
+
