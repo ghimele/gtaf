@@ -2,8 +2,7 @@ env:
   GTAF_FULL_VERSION: 0.0.1.${{ github.run_number }}
 
 name: Build GTAF
-#run-name: GTAF 0.0.1.${{ github.run_number }}
-run-name: GTAF ${{ env.GTAF_FULL_VERSION }}
+run-name: GTAF 0.0.1.${{ github.run_number }}
 
 on:
   push:
