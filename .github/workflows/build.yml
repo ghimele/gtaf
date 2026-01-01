@@ -8,16 +8,14 @@ on:
   pull_request:
     branches: [ "main"]
 
-env:
-  GTAF_FULL_VERSION: 0.0.1.${{ github.run_number }}
 
 jobs:
 
   build-linux:
     uses: ./.github/workflows/build-linux.yml
     with:
-      GTAF_FULL_VERSION: ${{ env.GTAF_FULL_VERSION }}
+      GTAF_FULL_VERSION: 0.0.1.${{ github.run_number }}
   build-windows:
     uses: ./.github/workflows/build-windows.yml
     with:
-      GTAF_FULL_VERSION: ${{ env.GTAF_FULL_VERSION }}
+      GTAF_FULL_VERSION: 0.0.1.${{ github.run_number }}
