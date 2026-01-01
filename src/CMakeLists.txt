@@ -13,20 +13,13 @@ include_directories(
     types
 )
 
+# --- 2. Version header generation ---
 if(NOT DEFINED GTAF_FULL_VERSION)
-  set(GTAF_FULL_VERSION "99.99.99.dev")
+  set(GTAF_FULL_VERSION "dev")
 endif()
-
-# if(DEFINED GTAF_BUILD_NUMBER)
-#   set(GTAF_FULL_VERSION
-#       "${PROJECT_VERSION}.${GTAF_BUILD_NUMBER}")
-# else()
-#   set(GTAF_FULL_VERSION "${PROJECT_VERSION}")
-# endif()
 
 message(STATUS "GTAF build version: ${GTAF_FULL_VERSION}")
 
-# --- 2. Version header generation ---
 configure_file(
   ${CMAKE_SOURCE_DIR}/version.h.in
   ${CMAKE_BINARY_DIR}/generated/version.h
@@ -38,7 +31,13 @@ set(LIB_SOURCES
     core/engine.cpp
 )
 
-add_library(gtaf_lib STATIC ${LIB_SOURCES})
+add_library(gtaf_lib SHARED
+    core/engine.cpp
+)
+
+set_target_properties(gtaf_lib PROPERTIES
+  WINDOWS_EXPORT_ALL_SYMBOLS ON
+)
 
 # Attach include paths to the library (modern CMake)
 target_include_directories(gtaf_lib
@@ -47,15 +46,17 @@ target_include_directories(gtaf_lib
     ${CMAKE_BINARY_DIR}/generated
 )
 
+target_compile_features(gtaf_lib PUBLIC cxx_std_20)
+
 # --- 4. Executable ---
 add_executable(gtaf_example example/main.cpp)
 target_link_libraries(gtaf_example PRIVATE gtaf_lib)
 
 # --- 5. Compiler Warnings & Optimizations ---
 if(MSVC)
-    target_compile_options(gtaf_lib PRIVATE /W4 /O2)
+  target_compile_options(gtaf_lib PRIVATE /W4)
 else()
-    target_compile_options(gtaf_lib PRIVATE -Wall -Wextra -O3)
+  target_compile_options(gtaf_lib PRIVATE -Wall -Wextra)
 endif()
 
 # --- 6. Messages ---
