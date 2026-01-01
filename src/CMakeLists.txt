@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(GTAF_Framework VERSION 1.1 LANGUAGES CXX)
+project(GTAF_Framework VERSION 0.0.1 LANGUAGES CXX)
 
 # --- 1. Global Settings ---
 set(CMAKE_CXX_STANDARD 20)
