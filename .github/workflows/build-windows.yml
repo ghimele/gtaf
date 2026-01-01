@@ -1,0 +1,52 @@
+name: Build (Windows)
+on:
+  workflow_call:
+    inputs:
+      GTAF_FULL_VERSION:
+        required: true
+        type: string
+
+jobs:
+  build-windows:
+    name: Build (Windows)
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        build_type: [Release]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install dependencies
+        run: |
+          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+          choco install ninja -y
+      - name: Configure CMake
+        run: |
+          cmake -S ./src -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DGTAF_FULL_VERSION=${{ inputs.GTAF_FULL_VERSION }}
+      - name: Build
+        run: |
+          cmake --build build --config ${{ matrix.build_type }}
+      - name: Run tests
+        if: always()
+        run: |
+          if (Test-Path build/CTestTestfile.cmake) {
+            ctest --test-dir build --output-on-failure
+          } else {
+            Write-Host "No tests found, skipping."
+          }
+        shell: pwsh
+      - name: Package artifacts
+        run: |
+          mkdir artifacts
+          Copy-Item -Recurse -Force build artifacts/build
+        shell: pwsh
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gtaf-build-windows-${{ inputs.GTAF_FULL_VERSION }}
+          path: artifacts
