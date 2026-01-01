@@ -1,5 +1,9 @@
+env:
+  GTAF_FULL_VERSION: 0.0.1.${{ github.run_number }}
+
 name: Build GTAF
-run-name: GTAF ${{ env.GTAF_FULL_VERSION }} (#${{ github.run_number }})
+#run-name: GTAF 0.0.1.${{ github.run_number }}
+run-name: GTAF ${{ env.GTAF_FULL_VERSION }}
 
 on:
   push:
@@ -17,11 +21,11 @@ jobs:
         build_type: [Release]
 
     steps:
-      - name: Compute build version
-        run: |
-          BASE_VERSION=0.0.1
-          BUILD_NUMBER=${{ github.run_number }}
-          echo "GTAF_FULL_VERSION=${BASE_VERSION}.${BUILD_NUMBER}" >> $GITHUB_ENV
+      # - name: Compute build version
+      #   run: |
+      #     BASE_VERSION=0.0.1
+      #     BUILD_NUMBER=${{ github.run_number }}
+      #     echo "GTAF_FULL_VERSION=${BASE_VERSION}.${BUILD_NUMBER}" >> $GITHUB_ENV
 
       - name: Checkout repository
         uses: actions/checkout@v4
