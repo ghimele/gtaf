@@ -12,18 +12,23 @@ include_directories(
     core,
     types
 )
-if(DEFINED GTAF_BUILD_NUMBER)
-  set(GTAF_FULL_VERSION
-      "${PROJECT_VERSION}.${GTAF_BUILD_NUMBER}")
-else()
-  set(GTAF_FULL_VERSION "${PROJECT_VERSION}")
+
+if(NOT DEFINED GTAF_FULL_VERSION)
+  set(GTAF_FULL_VERSION "99.99.99.dev")
 endif()
+
+# if(DEFINED GTAF_BUILD_NUMBER)
+#   set(GTAF_FULL_VERSION
+#       "${PROJECT_VERSION}.${GTAF_BUILD_NUMBER}")
+# else()
+#   set(GTAF_FULL_VERSION "${PROJECT_VERSION}")
+# endif()
 
 message(STATUS "GTAF build version: ${GTAF_FULL_VERSION}")
 
 # --- 2. Version header generation ---
 configure_file(
-  ${CMAKE_SOURCE_DIR}/include/version.h.in
+  ${CMAKE_SOURCE_DIR}/version.h.in
   ${CMAKE_BINARY_DIR}/generated/version.h
   @ONLY
 )
