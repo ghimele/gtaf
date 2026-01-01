@@ -34,7 +34,8 @@ jobs:
         run: |
           cmake -S ./src -B build \
             -G Ninja \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DGTAF_BUILD_NUMBER=${{ github.run_number }}
 
       - name: Build
         run: |
