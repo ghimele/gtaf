@@ -1,7 +1,7 @@
 #include <iostream>
 #include <iomanip>
-#include "../include/core/engine.h"
-#include "../include/core/node.h"
+#include "../core/engine.h"
+#include "../core/node.h"
 
 using namespace gtaf;
 

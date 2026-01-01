@@ -6,6 +6,12 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# --- 2. Include Directories ---
+# This tells the compiler where to find the gtaf headers
+include_directories(
+    core,
+    types
+)
 if(DEFINED GTAF_BUILD_NUMBER)
   set(GTAF_FULL_VERSION
       "${PROJECT_VERSION}.${GTAF_BUILD_NUMBER}")
