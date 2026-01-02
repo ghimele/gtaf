@@ -5,14 +5,17 @@ on:
       GTAF_FULL_VERSION:
         required: true
         type: string
+      BUILD_TYPE:
+        required: true
+        type: string
 
 jobs:
   build-linux:
     name: Build (Linux)
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        build_type: [Release]
+    # strategy:
+    #   matrix:
+    #     build_type: [Release]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,11 +33,11 @@ jobs:
         run: |
           cmake -S ./src -B build \
             -G Ninja \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_BUILD_TYPE=${{ inputs.BUILD_TYPE }} \
             -DGTAF_FULL_VERSION=${{ inputs.GTAF_FULL_VERSION }}
       - name: Build
         run: |
-          cmake --build build --config ${{ matrix.build_type }}
+          cmake --build build --config ${{ inputs.BUILD_TYPE }}
       - name: Run tests
         if: always()
         run: |
