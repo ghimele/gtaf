@@ -79,7 +79,7 @@ if(WIN32 AND MSVC)
   string(REPLACE "." "," GTAF_VERSION_COMMA "${GTAF_FULL_VERSION}")
 
   configure_file(
-    ${CMAKE_SOURCE_DIR}/src/windows/gtaf_version.rc.in
+    ${CMAKE_SOURCE_DIR}/windows/gtaf_version.rc.in
     ${CMAKE_BINARY_DIR}/gtaf_version.rc
     @ONLY
   )
