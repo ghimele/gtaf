@@ -5,14 +5,14 @@ on:
       GTAF_FULL_VERSION:
         required: true
         type: string
+      BUILD_TYPE:
+        required: true
+        type: string
 
 jobs:
   build-windows:
     name: Build Windows (MSVC)
     runs-on: windows-latest
-
-    env:
-      BUILD_TYPE: Release
 
     steps:
       - name: Checkout
@@ -36,24 +36,24 @@ jobs:
           cmake -S ./src -B build
           -G "Visual Studio 17 2022"
           -A x64
-          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DCMAKE_BUILD_TYPE=${{ inputs.BUILD_TYPE }}
           -DGTAF_FULL_VERSION=${{ inputs.GTAF_FULL_VERSION }}
 
       - name: Build
         run: >
           cmake --build build
-          --config ${{ env.BUILD_TYPE }}
+          --config ${{ inputs.BUILD_TYPE }}
           --parallel
 
       - name: Package artifacts
         run: |
           mkdir dist
-          copy build\${{ env.BUILD_TYPE }}\gtaf_example.exe dist\
+          copy build\${{ inputs.BUILD_TYPE }}\*.* dist\
         shell: pwsh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gtaf-windows-msvc
+          name: gtaf-windows-${{ inputs.GTAF_FULL_VERSION }}
           path: dist
 
