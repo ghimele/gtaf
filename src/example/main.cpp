@@ -2,6 +2,7 @@
 #include <iomanip>
 #include "../core/engine.h"
 #include "../core/node.h"
+#include "version.h"
 
 using namespace gtaf;
 
@@ -26,6 +27,7 @@ void print_projection(const std::string& title, const std::unordered_map<std::st
 int main() {
     core::Engine gtaf_engine;
 
+    std::cout << "GTAF version: " << GTAF_VERSION << std::endl;
     // 1. Create a "Canonical" atom for a common status
     // Both users will share this same physical atom in memory
     auto active_status = gtaf_engine.get_or_create_canonical_atom("user_status", "ACTIVE");
