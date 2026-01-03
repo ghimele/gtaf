@@ -1,9 +1,11 @@
 # ADR-001: Adopt Append-Only Event Log for Persistence
 
 ## Status
+
 Accepted
 
 ## Date
+
 2025-12-31
 
 ## Context
@@ -51,6 +53,7 @@ No page-based mutable storage is used as the authoritative data store.
 - Crash recovery is performed by replaying the log
 
 This removes the need for:
+
 - Page-level WAL
 - Complex checkpoint ordering
 - Torn-page protection logic
