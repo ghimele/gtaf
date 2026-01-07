@@ -7,45 +7,49 @@
 
 namespace gtaf::core {
 
+/**
+ * @brief Represents the projected state of a single entity
+ *
+ * A Node is a derived, mutable view rebuilt from the atom log.
+ * It tracks the latest atom for each type_tag and maintains full history.
+ */
 class Node final {
 public:
-    explicit Node(types::EntityId entity_id)
-        : m_entity_id(entity_id) {}
+    /**
+     * @brief Construct a Node for a given entity
+     */
+    explicit Node(types::EntityId entity_id);
 
-    // ---- Identity ----
-    [[nodiscard]] const types::EntityId& entity_id() const noexcept {
-        return m_entity_id;
-    }
+    /**
+     * @brief Get the entity ID this Node represents
+     */
+    [[nodiscard]] const types::EntityId& entity_id() const noexcept;
 
-    // ---- Projection update ----
-    // Apply an atom that belongs to this entity
+    /**
+     * @brief Apply an atom that belongs to this entity
+     *
+     * Updates the latest atom for the type_tag if the LSN is newer.
+     * Always appends to history.
+     */
     void apply(
         const types::AtomId& atom_id,
         const std::string& type_tag,
         types::LogSequenceNumber lsn
-    ) {
-        auto& slot = m_latest_by_tag[type_tag];
-        if (!slot || lsn > slot->lsn) {
-            slot = Entry{ atom_id, lsn };
-        }
+    );
 
-        m_history.emplace_back(atom_id, lsn);
-    }
-
-    // ---- Queries ----
-
+    /**
+     * @brief Query the latest atom for a given type_tag
+     *
+     * @return AtomId if found, nullopt otherwise
+     */
     [[nodiscard]] std::optional<types::AtomId>
-    latest_atom(const std::string& type_tag) const {
-        if (auto it = m_latest_by_tag.find(type_tag); it != m_latest_by_tag.end()) {
-            return it->second->atom_id;
-        }
-        return std::nullopt;
-    }
+    latest_atom(const std::string& type_tag) const;
 
+    /**
+     * @brief Get the complete history of atoms applied to this Node
+     */
     [[nodiscard]] const std::vector<std::pair<types::AtomId, types::LogSequenceNumber>>&
-    history() const noexcept {
-        return m_history;
-    }
+    history() const noexcept;
 
 private:
     struct Entry {

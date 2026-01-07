@@ -32,6 +32,8 @@ configure_file(
 # ------------------------------------------------------------
 add_library(gtaf_lib STATIC
   core/atom_log.cpp
+  core/node.cpp
+  core/projection_engine.cpp
   # Add more .cpp files here as they are created
 )
 

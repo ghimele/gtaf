@@ -5,19 +5,31 @@
 
 namespace gtaf::core {
 
+/**
+ * @brief Engine for rebuilding Node projections from the atom log
+ *
+ * The ProjectionEngine iterates through the log and reconstructs
+ * entity state by filtering and applying relevant atoms.
+ */
 class ProjectionEngine {
 public:
-    explicit ProjectionEngine(const AtomLog& log) : m_log(log) {}
+    /**
+     * @brief Construct a ProjectionEngine for a given log
+     *
+     * @param log Reference to the atom log (must outlive this engine)
+     */
+    explicit ProjectionEngine(const AtomLog& log);
 
-    Node rebuild(types::EntityId entity) const {
-        Node node(entity);
-        for (const auto& atom : m_log.all()) {
-            if (atom.entity_id() == entity) {
-                node.apply(atom.atom_id(), atom.type_tag(), atom.lsn());
-            }
-        }
-        return node;
-    }
+    /**
+     * @brief Rebuild a Node projection for a specific entity
+     *
+     * Scans the entire log, filters atoms by entity_id, and applies them
+     * in sequence to build the current state.
+     *
+     * @param entity The entity to rebuild
+     * @return Fully reconstructed Node
+     */
+    Node rebuild(types::EntityId entity) const;
 
 private:
     const AtomLog& m_log;
