@@ -28,17 +28,20 @@ configure_file(
 )
 
 # ------------------------------------------------------------
-# 3. Library target (header-only)
+# 3. Library target (now with implementation files)
 # ------------------------------------------------------------
-add_library(gtaf_lib INTERFACE)
+add_library(gtaf_lib STATIC
+  core/atom_log.cpp
+  # Add more .cpp files here as they are created
+)
 
 target_include_directories(gtaf_lib
-  INTERFACE
+  PUBLIC
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_BINARY_DIR}/generated
 )
 
-target_compile_features(gtaf_lib INTERFACE cxx_std_20)
+target_compile_features(gtaf_lib PUBLIC cxx_std_20)
 
 # ------------------------------------------------------------
 # 4. Executable target
