@@ -1,37 +1,117 @@
 #include "../core/atom_log.h"
 #include "../core/projection_engine.h"
+#include "../types/hash_utils.h"
 #include <iostream>
 #include <algorithm>
 
 using namespace gtaf;
 
 int main() {
+    std::cout << "=== GTAF Content-Addressed Storage Demo ===\n\n";
+
     core::AtomLog log;
 
     // Create EntityIds
-    types::EntityId user{};
-    std::fill(user.bytes.begin(), user.bytes.end(), 0);
-    user.bytes[0] = 1;
+    types::EntityId user1{};
+    std::fill(user1.bytes.begin(), user1.bytes.end(), 0);
+    user1.bytes[0] = 1;
+
+    types::EntityId user2{};
+    std::fill(user2.bytes.begin(), user2.bytes.end(), 0);
+    user2.bytes[0] = 2;
 
     types::EntityId recipe{};
     std::fill(recipe.bytes.begin(), recipe.bytes.end(), 0);
-    recipe.bytes[0] = 2;
+    recipe.bytes[0] = 3;
 
-    log.append(user, "entity.type", std::string("user"));
-    log.append(user, "user.name", std::string("Alice"));
+    types::EntityId sensor{};
+    std::fill(sensor.bytes.begin(), sensor.bytes.end(), 0);
+    sensor.bytes[0] = 4;
 
-    log.append(recipe, "entity.type", std::string("recipe"));
-    log.append(recipe, "recipe.title", std::string("Pasta"));
+    std::cout << "--- Test 1: Canonical Atoms (Deduplicated) ---\n";
 
-    // edge: user likes recipe
+    // Append canonical atoms (default classification)
+    auto atom1 = log.append(user1, "user.status", std::string("active"), types::AtomType::Canonical);
+    std::cout << "Created atom1: user.status = 'active'\n";
+    std::cout << "  AtomId: " << types::atom_id_to_hex(atom1.atom_id()) << "\n";
+
+    // Append same value to different user - should reuse the atom!
+    auto atom2 = log.append(user2, "user.status", std::string("active"), types::AtomType::Canonical);
+    std::cout << "Created atom2: user.status = 'active' (different user)\n";
+    std::cout << "  AtomId: " << types::atom_id_to_hex(atom2.atom_id()) << "\n";
+
+    if (atom1.atom_id() == atom2.atom_id()) {
+        std::cout << "  ✓ DEDUPLICATED! Both atoms share the same content-addressed ID\n";
+    } else {
+        std::cout << "  ✗ ERROR: Atoms should have been deduplicated\n";
+    }
+
+    // Different value - should create new atom
+    auto atom3 = log.append(user1, "user.status", std::string("inactive"), types::AtomType::Canonical);
+    std::cout << "Created atom3: user.status = 'inactive'\n";
+    std::cout << "  AtomId: " << types::atom_id_to_hex(atom3.atom_id()) << "\n";
+    std::cout << "  ✓ Different value = different hash\n\n";
+
+    std::cout << "--- Test 2: Temporal Atoms (NOT Deduplicated) ---\n";
+
+    // Temporal atoms use sequential IDs
+    auto temp1 = log.append(sensor, "temperature", 23.5, types::AtomType::Temporal);
+    auto temp2 = log.append(sensor, "temperature", 23.5, types::AtomType::Temporal);
+
+    std::cout << "Created temp1: temperature = 23.5\n";
+    std::cout << "  AtomId: " << types::atom_id_to_hex(temp1.atom_id()) << "\n";
+    std::cout << "Created temp2: temperature = 23.5 (same value)\n";
+    std::cout << "  AtomId: " << types::atom_id_to_hex(temp2.atom_id()) << "\n";
+
+    if (temp1.atom_id() != temp2.atom_id()) {
+        std::cout << "  ✓ NOT DEDUPLICATED (correct for time-series data)\n";
+    } else {
+        std::cout << "  ✗ ERROR: Temporal atoms should NOT be deduplicated\n";
+    }
+    std::cout << "\n";
+
+    std::cout << "--- Test 3: Mutable Atoms (Counters) ---\n";
+
+    auto counter1 = log.append(user1, "login_count", static_cast<int64_t>(1), types::AtomType::Mutable);
+    auto counter2 = log.append(user1, "login_count", static_cast<int64_t>(2), types::AtomType::Mutable);
+
+    std::cout << "Created counter1: login_count = 1\n";
+    std::cout << "  AtomId: " << types::atom_id_to_hex(counter1.atom_id()) << "\n";
+    std::cout << "Created counter2: login_count = 2\n";
+    std::cout << "  AtomId: " << types::atom_id_to_hex(counter2.atom_id()) << "\n";
+    std::cout << "  ✓ Mutable atoms use sequential IDs (delta logging)\n\n";
+
+    std::cout << "--- Test 4: Edge Values ---\n";
+
     types::EdgeValue edge{recipe, "likes"};
-    log.append(user, "edge.likes", edge);
+    log.append(user1, "edge.likes", edge, types::AtomType::Canonical);
+    std::cout << "Created edge: user1 -> likes -> recipe\n\n";
 
+    std::cout << "--- Statistics ---\n";
+    auto stats = log.get_stats();
+    std::cout << "Total atoms in log: " << stats.total_atoms << "\n";
+    std::cout << "Canonical atoms created: " << stats.canonical_atoms << "\n";
+    std::cout << "Unique canonical atoms: " << stats.unique_canonical_atoms << "\n";
+    std::cout << "Deduplication hits: " << stats.deduplicated_hits << "\n";
+    std::cout << "Deduplication rate: "
+              << (stats.canonical_atoms > 0
+                  ? (100.0 * stats.deduplicated_hits / stats.canonical_atoms)
+                  : 0.0)
+              << "%\n\n";
+
+    std::cout << "--- Projection Rebuild ---\n";
     core::ProjectionEngine projector(log);
 
-    auto user_node = projector.rebuild(user);
+    auto user1_node = projector.rebuild(user1);
+    auto user2_node = projector.rebuild(user2);
     auto recipe_node = projector.rebuild(recipe);
+    auto sensor_node = projector.rebuild(sensor);
 
-    std::cout << "User node rebuilt\n";
-    std::cout << "Recipe node rebuilt\n";
+    std::cout << "Rebuilt " << user1_node.history().size() << " atoms for user1\n";
+    std::cout << "Rebuilt " << user2_node.history().size() << " atoms for user2\n";
+    std::cout << "Rebuilt " << recipe_node.history().size() << " atoms for recipe\n";
+    std::cout << "Rebuilt " << sensor_node.history().size() << " atoms for sensor\n";
+
+    std::cout << "\n=== Demo Complete ===\n";
+    return 0;
 }
