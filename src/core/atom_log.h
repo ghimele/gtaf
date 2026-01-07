@@ -1,17 +1,15 @@
 // atom_log.h
 #pragma once
 #include "atom.h"
-#include "../types/hash_utils.h"
 #include <vector>
-#include <chrono>
-#include <cstring>
-#include <algorithm>
 #include <unordered_map>
-#include <optional>
+#include <cstddef>
+#include <cstring>
 
 namespace gtaf::core {
 
 // Hash function for AtomId to use in unordered_map
+// Must be defined here (not forward declared) because it's used as a template parameter
 struct AtomIdHash {
     std::size_t operator()(const types::AtomId& id) const noexcept {
         // Use first 8 bytes as hash
@@ -21,15 +19,24 @@ struct AtomIdHash {
     }
 };
 
+/**
+ * @brief Append-only log for storing Atoms with classification-aware write paths
+ *
+ * The AtomLog implements the core persistence mechanism for GTAF, routing writes
+ * to appropriate handlers based on Atom classification:
+ * - Canonical: content-addressed with global deduplication
+ * - Temporal: sequential IDs, optimized for time-series
+ * - Mutable: sequential IDs with delta logging (TODO)
+ */
 class AtomLog {
 public:
     /**
      * @brief Append an atom to the log with proper classification handling
      *
-     * - Canonical atoms: content-addressed with global deduplication
-     * - Temporal atoms: sequential IDs, no deduplication
-     * - Mutable atoms: sequential IDs, delta logging (TODO)
-     *
+     * @param entity The entity this atom belongs to
+     * @param tag The semantic type tag (e.g., "user.name")
+     * @param value The atom value
+     * @param classification The atom class (Canonical, Temporal, or Mutable)
      * @return The created (or existing) Atom
      */
     Atom append(
@@ -37,24 +44,15 @@ public:
         std::string tag,
         types::AtomValue value,
         types::AtomType classification = types::AtomType::Canonical
-    ) {
-        // Route to appropriate write path based on classification
-        switch (classification) {
-            case types::AtomType::Canonical:
-                return append_canonical(entity, std::move(tag), std::move(value));
-            case types::AtomType::Temporal:
-                return append_temporal(entity, std::move(tag), std::move(value));
-            case types::AtomType::Mutable:
-                return append_mutable(entity, std::move(tag), std::move(value));
-        }
-        // Should never reach here, but satisfy compiler
-        return append_temporal(entity, std::move(tag), std::move(value));
-    }
-
-    const std::vector<Atom>& all() const { return m_atoms; }
+    );
 
     /**
-     * @brief Get deduplication statistics
+     * @brief Get all atoms in the log
+     */
+    const std::vector<Atom>& all() const;
+
+    /**
+     * @brief Deduplication and storage statistics
      */
     struct Stats {
         size_t total_atoms = 0;
@@ -63,14 +61,10 @@ public:
         size_t unique_canonical_atoms = 0;
     };
 
-    Stats get_stats() const {
-        Stats stats;
-        stats.total_atoms = m_atoms.size();
-        stats.canonical_atoms = m_canonical_atom_count;
-        stats.deduplicated_hits = m_dedup_hits;
-        stats.unique_canonical_atoms = m_canonical_dedup_map.size();
-        return stats;
-    }
+    /**
+     * @brief Get deduplication statistics
+     */
+    Stats get_stats() const;
 
 private:
     /**
@@ -80,39 +74,7 @@ private:
         types::EntityId entity,
         std::string tag,
         types::AtomValue value
-    ) {
-        // Compute content-based hash
-        types::AtomId atom_id = types::compute_content_hash(tag, value);
-
-        // Check for existing atom with same hash (deduplication)
-        if (auto it = m_canonical_dedup_map.find(atom_id); it != m_canonical_dedup_map.end()) {
-            // Atom already exists - return existing atom
-            ++m_dedup_hits;
-            return m_atoms[it->second];
-        }
-
-        // New canonical atom - create and store
-        types::LogSequenceNumber lsn{++m_next_lsn};
-        types::Timestamp now = get_current_timestamp();
-
-        Atom atom(
-            atom_id,
-            entity,
-            types::AtomType::Canonical,
-            std::move(tag),
-            std::move(value),
-            lsn,
-            now
-        );
-
-        // Store in log and dedup map
-        size_t index = m_atoms.size();
-        m_atoms.push_back(atom);
-        m_canonical_dedup_map[atom_id] = index;
-        ++m_canonical_atom_count;
-
-        return atom;
-    }
+    );
 
     /**
      * @brief Append a Temporal atom (time-series, no deduplication)
@@ -121,26 +83,7 @@ private:
         types::EntityId entity,
         std::string tag,
         types::AtomValue value
-    ) {
-        // Generate sequential ID for temporal atoms
-        types::AtomId atom_id = generate_sequential_id();
-
-        types::LogSequenceNumber lsn{++m_next_lsn};
-        types::Timestamp now = get_current_timestamp();
-
-        Atom atom(
-            atom_id,
-            entity,
-            types::AtomType::Temporal,
-            std::move(tag),
-            std::move(value),
-            lsn,
-            now
-        );
-
-        m_atoms.push_back(atom);
-        return atom;
-    }
+    );
 
     /**
      * @brief Append a Mutable atom (counters, aggregates, delta-logged)
@@ -149,47 +92,17 @@ private:
         types::EntityId entity,
         std::string tag,
         types::AtomValue value
-    ) {
-        // Generate sequential ID for mutable atoms
-        types::AtomId atom_id = generate_sequential_id();
-
-        types::LogSequenceNumber lsn{++m_next_lsn};
-        types::Timestamp now = get_current_timestamp();
-
-        Atom atom(
-            atom_id,
-            entity,
-            types::AtomType::Mutable,
-            std::move(tag),
-            std::move(value),
-            lsn,
-            now
-        );
-
-        m_atoms.push_back(atom);
-        // TODO: Implement delta logging and snapshot emission
-        return atom;
-    }
+    );
 
     /**
      * @brief Generate sequential AtomId for non-canonical atoms
      */
-    types::AtomId generate_sequential_id() {
-        types::AtomId atom_id;
-        std::fill(atom_id.bytes.begin(), atom_id.bytes.end(), 0);
-        uint64_t id_val = ++m_next_atom_id;
-        std::memcpy(atom_id.bytes.data(), &id_val, sizeof(id_val));
-        return atom_id;
-    }
+    types::AtomId generate_sequential_id();
 
     /**
      * @brief Get current timestamp in microseconds
      */
-    types::Timestamp get_current_timestamp() const {
-        return std::chrono::duration_cast<std::chrono::microseconds>(
-            std::chrono::system_clock::now().time_since_epoch()
-        ).count();
-    }
+    types::Timestamp get_current_timestamp() const;
 
     // Sequential ID counter (for Temporal and Mutable atoms)
     uint64_t m_next_atom_id = 0;
