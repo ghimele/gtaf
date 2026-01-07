@@ -38,13 +38,16 @@ An **Atom** is a typed unit of value.
 Atoms are classified into **three categories**, each optimized for different workloads:
 
 #### 1. Canonical Atoms
+
 Used for business facts and metadata:
+
 - Names
 - Status
 - Configuration
 - Documents
 
 Properties:
+
 - Immutable
 - Content-addressed
 - Globally deduplicated

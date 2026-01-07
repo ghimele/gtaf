@@ -28,33 +28,17 @@ configure_file(
 )
 
 # ------------------------------------------------------------
-# 3. Library target
+# 3. Library target (header-only)
 # ------------------------------------------------------------
-add_library(gtaf_lib SHARED
-  core/engine.cpp
-)
-
-# Linux shared library versioning (SONAME)
-set_target_properties(gtaf_lib PROPERTIES
-  VERSION   ${GTAF_FULL_VERSION}
-  SOVERSION ${GTAF_FULL_VERSION}
-  WINDOWS_EXPORT_ALL_SYMBOLS ON
-)
+add_library(gtaf_lib INTERFACE)
 
 target_include_directories(gtaf_lib
-  PUBLIC
+  INTERFACE
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_BINARY_DIR}/generated
 )
 
-target_compile_features(gtaf_lib PUBLIC cxx_std_20)
-
-# Warnings
-if(MSVC)
-  target_compile_options(gtaf_lib PRIVATE /W4)
-else()
-  target_compile_options(gtaf_lib PRIVATE -Wall -Wextra)
-endif()
+target_compile_features(gtaf_lib INTERFACE cxx_std_20)
 
 # ------------------------------------------------------------
 # 4. Executable target

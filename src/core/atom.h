@@ -1,46 +1,112 @@
 #pragma once
+
 #include "../types/types.h"
 
 namespace gtaf::core {
 
-class Atom {
+class Atom final {
 public:
-    Atom(std::string id, 
-         types::AtomType cls, 
-         std::string tag, 
-         types::AtomValue val)
-        : m_id(std::move(id)), 
-          m_classification(cls), 
-          m_type_tag(std::move(tag)), 
-          m_value(std::move(val)), 
-          m_created_at(0) {} // In production, use high-res clock
+    Atom(
+        types::AtomId atom_id,
+        types::EntityId entity_id,
+        types::AtomType classification,
+        std::string type_tag,
+        types::AtomValue value,
+        types::LogSequenceNumber lsn,
+        types::Timestamp created_at,
+        types::TransactionId tx_id = {},
+        uint32_t flags = 0
+    )
+        : m_atom_id(atom_id),
+          m_entity_id(entity_id),
+          m_classification(classification),
+          m_type_tag(std::move(type_tag)),
+          m_value(std::move(value)),
+          m_lsn(lsn),
+          m_created_at(created_at),
+          m_tx_id(tx_id),
+          m_flags(flags)
+    {}
 
-    // Accessors
-    [[nodiscard]] const std::string& id() const { return m_id; }
-    [[nodiscard]] types::AtomType classification() const { return m_classification; }
-    [[nodiscard]] const std::string& type_tag() const { return m_type_tag; }
-    [[nodiscard]] const types::AtomValue& value() const { return m_value; }
-    [[nodiscard]] types::Timestamp created_at() const { return m_created_at; }
+    // ---- Identity ----
+    [[nodiscard]] types::AtomId atom_id() const noexcept { return m_atom_id; }
+    [[nodiscard]] types::EntityId entity_id() const noexcept { return m_entity_id; }
 
-    // convenience helpers
-    bool is_canonical() const noexcept {
+    // ---- Classification ----
+    [[nodiscard]] types::AtomType classification() const noexcept { return m_classification; }
+    [[nodiscard]] const std::string& type_tag() const noexcept { return m_type_tag; }
+
+    // ---- Value ----
+    [[nodiscard]] const types::AtomValue& value() const noexcept { return m_value; }
+
+    // ---- Append-only metadata ----
+    [[nodiscard]] types::LogSequenceNumber lsn() const noexcept { return m_lsn; }
+    [[nodiscard]] types::Timestamp created_at() const noexcept { return m_created_at; }
+    [[nodiscard]] types::TransactionId tx_id() const noexcept { return m_tx_id; }
+    [[nodiscard]] uint32_t flags() const noexcept { return m_flags; }
+
+    // ---- Convenience helpers ----
+    [[nodiscard]] constexpr bool is_canonical() const noexcept {
         return m_classification == types::AtomType::Canonical;
     }
 
-    bool is_temporal() const noexcept {
+    [[nodiscard]] constexpr bool is_temporal() const noexcept {
         return m_classification == types::AtomType::Temporal;
     }
 
-    bool is_mutable() const noexcept {
+    [[nodiscard]] constexpr bool is_mutable() const noexcept {
         return m_classification == types::AtomType::Mutable;
     }
 
 private:
-    std::string m_id;
+    // ---- Identity ----
+    types::AtomId   m_atom_id;
+    types::EntityId m_entity_id;
+
+    // ---- Classification ----
     types::AtomType m_classification;
-    std::string m_type_tag;
+    std::string     m_type_tag;
+
+    // ---- Value ----
     types::AtomValue m_value;
-    types::Timestamp m_created_at;
+
+    // ---- Append-only metadata ----
+    types::LogSequenceNumber m_lsn;
+    types::Timestamp         m_created_at;
+    types::TransactionId     m_tx_id;
+    uint32_t                 m_flags;
 };
 
 } // namespace gtaf::core
+
+/*
+EntityId: 
+    Identifies a logical entity
+    Stable across time
+    Can be referenced by:
+        Atoms
+        Nodes
+        Edges
+        Projections
+        External systems
+
+Has no behavior
+Is not an object
+Is not mutable
+It is a coordinate in the data model.
+
+AtomId:
+
+Identifies a single append-only record
+Never reused
+Never shared
+Exists exactly once in the log
+Is not referenced for domain modeling
+Used for:
+    deduplication
+    replay
+    replication
+    idempotency
+
+It is a coordinate in the storage model.
+*/
