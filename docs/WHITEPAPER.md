@@ -1,4 +1,5 @@
-GTAF — Generalized Typed Atom Framework
+# GTAF — Generalized Typed Atom Framework
+
 Revised Whitepaper (Production-Viable Edition)
 Version 1.1 — Corrected Architecture
 Abstract
@@ -24,6 +25,7 @@ Storage is backend-agnostic
 This revised specification acknowledges that immutability is a logical contract, not a physical storage mandate. GTAF therefore combines immutable semantics with locality-optimized, write-efficient storage strategies.
 
 2. Problem Statement
+
 2.1 Schema Rigidity
 
 Relational and document databases require early schema commitment and continuous migrations.
@@ -50,7 +52,8 @@ Vector similarity
 
 Stacking multiple engines increases complexity and cost.
 
-3. Core Conceptual Model
+1. Core Conceptual Model
+
 3.1 Node (Identity)
 
 A Node represents an identity-bearing entity:
@@ -145,55 +148,53 @@ A Property is a named pointer from a Node to an Atom (of any class).
 
 An Edge is an explicit relationship between Nodes, enabling graph traversal and domain modeling.
 
-4. Architecture Overview
-4.1 Logical Layers
+1. Architecture Overview
 
-Application Layer
+```mermaid
+graph TB
+    subgraph Application["Application Layer"]
+        SDK[SDKs: TypeScript, C++, Python]
+        API[Query API / GTAF-QL]
+        PROJ[Domain Projections]
+    end
 
-SDKs (TypeScript, C++, Python)
+    subgraph Logical["Logical Data Model"]
+        NODES[Nodes]
+        ATOMS[Atom Classes:<br/>Canonical, Temporal, Mutable]
+        EDGES[Edges]
+        VERSION[Version Semantics]
+    end
 
-Query API / GTAF-QL
+    subgraph Physical["Physical Layers"]
+        subgraph Projection["Projection Layer (Derived, Mutable, Disposable)"]
+            ROW[Row Projections]
+            COL[Column Projections]
+            GRAPH[Graph Neighborhood Caches]
+            CACHE[Hot-Set Caches]
+        end
 
-Domain projections
+        subgraph Storage["Storage Engines"]
+            FS[Filesystem]
+            SQLITE[Embedded DB: SQLite]
+            POSTGRES[Relational DB: Postgres]
+            OBJ[Object Storage]
+            DIST[Distributed Backends]
+        end
+    end
 
-Logical Data Model
+    Application --> Logical
+    Logical --> Projection
+    Projection --> Storage
 
-Nodes
-
-Atom classes
-
-Edges
-
-Version semantics
-
-4.2 Physical Layers
-
-Projection Layer (Critical)
-Derived, mutable, disposable representations optimized for reads:
-
-Row projections
-
-Column projections
-
-Graph neighborhood caches
-
-Hot-set caches
-
-Storage Engines
-
-Filesystem
-
-Embedded DB (SQLite)
-
-Relational DB (Postgres)
-
-Object storage
-
-Distributed backends
-
-Logical immutability is preserved even though projections mutate.
+    style Application fill:#e1f5ff
+    style Logical fill:#fff4e1
+    style Physical fill:#f0f0f0
+    style Projection fill:#e8f5e9
+    style Storage fill:#fce4ec
+```
 
 5. Storage Model
+
 5.1 Logical Tables
 
 NODE(node_id, created_at)
@@ -214,7 +215,7 @@ Packed segments for canonical atoms
 
 Compacted projections for queries
 
-6. Deduplication & History Semantics
+1. Deduplication & History Semantics
 6.1 Selective Deduplication
 
 Only Canonical Atoms participate in global deduplication.
