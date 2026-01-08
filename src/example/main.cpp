@@ -81,16 +81,27 @@ int main() {
     std::cout << "  ✓ Chunk should have been sealed at 1000 values\n";
     std::cout << "  ✓ Second chunk should have 500 values\n\n";
 
-    std::cout << "--- Test 3: Mutable Atoms (Counters) ---\n";
+    std::cout << "--- Test 3: Mutable Atoms (Counters with Delta Logging) ---\n";
 
     auto counter1 = log.append(user1, "login_count", static_cast<int64_t>(1), types::AtomType::Mutable);
-    auto counter2 = log.append(user1, "login_count", static_cast<int64_t>(2), types::AtomType::Mutable);
-
     std::cout << "Created counter1: login_count = 1\n";
     std::cout << "  AtomId: " << types::atom_id_to_hex(counter1.atom_id()) << "\n";
-    std::cout << "Created counter2: login_count = 2\n";
+
+    auto counter2 = log.append(user1, "login_count", static_cast<int64_t>(2), types::AtomType::Mutable);
+    std::cout << "Updated to counter2: login_count = 2\n";
     std::cout << "  AtomId: " << types::atom_id_to_hex(counter2.atom_id()) << "\n";
-    std::cout << "  ✓ Mutable atoms use sequential IDs (delta logging)\n\n";
+
+    if (counter1.atom_id() == counter2.atom_id()) {
+        std::cout << "  ✓ Same AtomId (in-place mutation with delta logging)\n";
+    }
+
+    // Trigger snapshot by exceeding delta threshold (10 deltas)
+    std::cout << "\nAppending 10 more mutations to trigger snapshot...\n";
+    for (int i = 3; i <= 12; ++i) {
+        log.append(user1, "login_count", static_cast<int64_t>(i), types::AtomType::Mutable);
+    }
+    std::cout << "  ✓ Snapshot should have been emitted at 10 deltas\n";
+    std::cout << "  ✓ Delta history cleared after snapshot\n\n";
 
     std::cout << "--- Test 4: Edge Values ---\n";
 

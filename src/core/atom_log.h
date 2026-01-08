@@ -2,6 +2,7 @@
 #pragma once
 #include "atom.h"
 #include "temporal_chunk.h"
+#include "mutable_state.h"
 #include <vector>
 #include <unordered_map>
 #include <cstddef>
@@ -134,6 +135,20 @@ private:
      */
     void seal_and_rotate_chunk(const TemporalKey& key);
 
+    /**
+     * @brief Get or create mutable state for a (entity, tag) property
+     */
+    MutableState& get_or_create_mutable_state(
+        const types::EntityId& entity,
+        const std::string& tag,
+        const types::AtomValue& initial_value
+    );
+
+    /**
+     * @brief Emit snapshot atom for a mutable state
+     */
+    void emit_snapshot(const MutableState& state);
+
     // Sequential ID counter (for Temporal and Mutable atoms)
     uint64_t m_next_atom_id = 0;
 
@@ -161,9 +176,18 @@ private:
     // Configuration
     size_t m_chunk_size_threshold = 1000;  // Values per chunk
 
+    // --- Mutable Atom Management ---
+
+    // Mutable states by (entity, tag) - one per mutable property
+    std::unordered_map<TemporalKey, MutableState, TemporalKeyHash> m_mutable_states;
+
+    // Configuration
+    uint32_t m_snapshot_delta_threshold = 10;  // Deltas before snapshot
+
     // Statistics
     size_t m_canonical_atom_count = 0;
     size_t m_dedup_hits = 0;
+    size_t m_snapshot_count = 0;
 };
 
 } // namespace gtaf::core
