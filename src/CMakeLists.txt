@@ -81,6 +81,22 @@ if(WIN32 AND MSVC)
 endif()
 
 # ------------------------------------------------------------
-# 6. Final message
+# 6. Test executable
+# ------------------------------------------------------------
+add_executable(gtaf_test
+  test/test_main.cpp
+  test/test_atom_log.cpp
+  test/test_persistence.cpp
+  test/test_node.cpp
+)
+
+target_link_libraries(gtaf_test PRIVATE gtaf_lib)
+
+target_compile_definitions(gtaf_test PRIVATE
+  GTAF_VERSION="${GTAF_FULL_VERSION}"
+)
+
+# ------------------------------------------------------------
+# 7. Final message
 # ------------------------------------------------------------
 message(STATUS "GTAF Framework Build System Configured.")

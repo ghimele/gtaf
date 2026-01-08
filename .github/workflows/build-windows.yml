@@ -45,6 +45,22 @@ jobs:
           --config ${{ inputs.BUILD_TYPE }}
           --parallel
 
+      - name: Run tests
+        if: always()
+        run: |
+          if (Test-Path "build\${{ inputs.BUILD_TYPE }}\gtaf_test.exe") {
+            Write-Host "Running GTAF unit tests..."
+            & "build\${{ inputs.BUILD_TYPE }}\gtaf_test.exe"
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "Tests failed with exit code $LASTEXITCODE"
+              exit $LASTEXITCODE
+            }
+          } else {
+            Write-Host "Test executable not found, skipping tests."
+            exit 1
+          }
+        shell: pwsh
+
       - name: Package artifacts
         run: |
           mkdir dist
