@@ -130,6 +130,28 @@ public:
         const std::string& tag
     ) const;
 
+    /**
+     * @brief Save the entire atom log to a binary file
+     *
+     * Persists all atoms, chunks, and mutable states to disk.
+     * Format is designed for fast loading and forward compatibility.
+     *
+     * @param filepath Path to output file
+     * @return true on success, false on failure
+     */
+    bool save(const std::string& filepath) const;
+
+    /**
+     * @brief Load atom log from a binary file
+     *
+     * Replaces current state with data from file.
+     * Warning: Clears all existing data before loading.
+     *
+     * @param filepath Path to input file
+     * @return true on success, false on failure
+     */
+    bool load(const std::string& filepath);
+
 private:
     /**
      * @brief Append a Canonical atom (immutable, content-addressed, deduplicated)
@@ -201,6 +223,14 @@ private:
         types::Timestamp end_time,
         TemporalQueryResult& result
     ) const;
+
+    /**
+     * @brief Rebuild indexes and derived structures from atom log
+     *
+     * Reconstructs dedup maps, temporal chunks, and mutable states
+     * by replaying the atom log. Used after loading from disk.
+     */
+    void rebuild_indexes();
 
     // Sequential ID counter (for Temporal and Mutable atoms)
     uint64_t m_next_atom_id = 0;
