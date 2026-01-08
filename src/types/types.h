@@ -25,6 +25,7 @@ using Timestamp   = uint64_t;           // Microseconds since epoch
 using Hash        = std::string;        // Content-addressed ID (usually SHA-256)
 using NodeID      = std::string;        // Unique Identity anchor
 using Vector      = std::vector<float>; // AI/ML Embedding (e.g., 768 dims)
+using ChunkId     = uint64_t;           // Sequential chunk identifier per stream
 
 struct AtomId final {
     std::array<uint8_t, 16> bytes;

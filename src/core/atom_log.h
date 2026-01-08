@@ -1,6 +1,7 @@
 // atom_log.h
 #pragma once
 #include "atom.h"
+#include "temporal_chunk.h"
 #include <vector>
 #include <unordered_map>
 #include <cstddef>
@@ -16,6 +17,25 @@ struct AtomIdHash {
         uint64_t hash;
         std::memcpy(&hash, id.bytes.data(), sizeof(hash));
         return static_cast<std::size_t>(hash);
+    }
+};
+
+// Key for tracking temporal chunks by (entity, tag) pair
+struct TemporalKey {
+    types::EntityId entity_id;
+    std::string tag;
+
+    bool operator==(const TemporalKey& other) const = default;
+};
+
+// Hash function for TemporalKey
+struct TemporalKeyHash {
+    std::size_t operator()(const TemporalKey& key) const noexcept {
+        // Combine entity hash and tag hash
+        std::hash<std::string> tag_hash;
+        uint64_t entity_hash = 0;
+        std::memcpy(&entity_hash, key.entity_id.bytes.data(), 8);
+        return entity_hash ^ tag_hash(key.tag);
     }
 };
 
@@ -104,6 +124,16 @@ private:
      */
     types::Timestamp get_current_timestamp() const;
 
+    /**
+     * @brief Get or create active chunk for a (entity, tag) stream
+     */
+    TemporalChunk& get_or_create_active_chunk(const TemporalKey& key);
+
+    /**
+     * @brief Seal current chunk and prepare for next chunk
+     */
+    void seal_and_rotate_chunk(const TemporalKey& key);
+
     // Sequential ID counter (for Temporal and Mutable atoms)
     uint64_t m_next_atom_id = 0;
 
@@ -116,6 +146,20 @@ private:
     // Deduplication map: hash -> index in m_atoms
     // Only used for Canonical atoms
     std::unordered_map<types::AtomId, size_t, AtomIdHash> m_canonical_dedup_map;
+
+    // --- Temporal Chunk Management ---
+
+    // Active chunks (one per entity+tag stream)
+    std::unordered_map<TemporalKey, TemporalChunk, TemporalKeyHash> m_active_chunks;
+
+    // Sealed chunks for history queries
+    std::unordered_map<types::ChunkId, TemporalChunk> m_sealed_chunks;
+
+    // Chunk ID counter per stream
+    std::unordered_map<TemporalKey, types::ChunkId, TemporalKeyHash> m_next_chunk_id;
+
+    // Configuration
+    size_t m_chunk_size_threshold = 1000;  // Values per chunk
 
     // Statistics
     size_t m_canonical_atom_count = 0;
