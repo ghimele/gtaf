@@ -168,3 +168,77 @@ TEST(Node, LatestAtom) {
     ASSERT_TRUE(latest.has_value());
     ASSERT_EQ(*latest, atom2.atom_id());
 }
+
+TEST(ProjectionEngine, GetAllEntities) {
+    core::AtomLog log;
+    auto entity1 = make_entity_node(1);
+    auto entity2 = make_entity_node(2);
+    auto entity3 = make_entity_node(3);
+
+    log.append(entity1, "name", std::string("Alice"), types::AtomType::Canonical);
+    log.append(entity2, "name", std::string("Bob"), types::AtomType::Canonical);
+    log.append(entity3, "name", std::string("Charlie"), types::AtomType::Canonical);
+    log.append(entity1, "age", static_cast<int64_t>(30), types::AtomType::Canonical);
+
+    core::ProjectionEngine projector(log);
+    auto entities = projector.get_all_entities();
+
+    // Should have 3 unique entities
+    ASSERT_EQ(entities.size(), 3);
+}
+
+TEST(ProjectionEngine, RebuildAll) {
+    core::AtomLog log;
+    auto entity1 = make_entity_node(1);
+    auto entity2 = make_entity_node(2);
+
+    log.append(entity1, "name", std::string("Alice"), types::AtomType::Canonical);
+    log.append(entity1, "age", static_cast<int64_t>(30), types::AtomType::Canonical);
+    log.append(entity2, "name", std::string("Bob"), types::AtomType::Canonical);
+    log.append(entity2, "age", static_cast<int64_t>(25), types::AtomType::Canonical);
+
+    core::ProjectionEngine projector(log);
+    auto all_nodes = projector.rebuild_all();
+
+    // Should have 2 nodes
+    ASSERT_EQ(all_nodes.size(), 2);
+
+    // Verify entity1 node
+    auto it1 = all_nodes.find(entity1);
+    ASSERT_TRUE(it1 != all_nodes.end());
+    auto name1 = it1->second.get("name");
+    ASSERT_TRUE(name1.has_value());
+    ASSERT_EQ(std::get<std::string>(*name1), "Alice");
+
+    // Verify entity2 node
+    auto it2 = all_nodes.find(entity2);
+    ASSERT_TRUE(it2 != all_nodes.end());
+    auto name2 = it2->second.get("name");
+    ASSERT_TRUE(name2.has_value());
+    ASSERT_EQ(std::get<std::string>(*name2), "Bob");
+}
+
+TEST(ProjectionEngine, RebuildAllEfficiency) {
+    core::AtomLog log;
+
+    // Create 50 entities with unique properties
+    for (int i = 1; i <= 50; ++i) {
+        auto entity = make_entity_node(static_cast<uint8_t>(i));
+        for (int j = 0; j < 10; ++j) {
+            // Use entity-specific values to avoid deduplication affecting entity count
+            log.append(entity, "prop" + std::to_string(j),
+                      static_cast<int64_t>(i * 1000 + j), types::AtomType::Temporal);
+        }
+    }
+
+    core::ProjectionEngine projector(log);
+    auto all_nodes = projector.rebuild_all();
+
+    // Should have 50 nodes
+    ASSERT_EQ(all_nodes.size(), 50);
+
+    // Each node should have 10 properties
+    for (const auto& [entity_id, node] : all_nodes) {
+        ASSERT_EQ(node.get_all().size(), 10);
+    }
+}

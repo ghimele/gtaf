@@ -2,8 +2,21 @@
 #pragma once
 #include "atom_log.h"
 #include "node.h"
+#include <unordered_map>
+#include <vector>
+#include <cstring>
 
 namespace gtaf::core {
+
+// Hash function for EntityId to use in unordered_map
+struct EntityIdHash {
+    std::size_t operator()(const types::EntityId& id) const noexcept {
+        // Use first 8 bytes as hash
+        uint64_t hash;
+        std::memcpy(&hash, id.bytes.data(), sizeof(hash));
+        return static_cast<std::size_t>(hash);
+    }
+};
 
 /**
  * @brief Engine for rebuilding Node projections from the atom log
@@ -30,6 +43,25 @@ public:
      * @return Fully reconstructed Node
      */
     Node rebuild(types::EntityId entity) const;
+
+    /**
+     * @brief Get all unique entity IDs present in the log
+     *
+     * Scans the log and collects all unique entity IDs.
+     *
+     * @return Vector of unique entity IDs
+     */
+    std::vector<types::EntityId> get_all_entities() const;
+
+    /**
+     * @brief Rebuild all nodes for all entities in the log
+     *
+     * Efficiently builds a complete projection by scanning the log once
+     * and distributing atoms to their respective nodes.
+     *
+     * @return Map of entity_id -> Node for all entities
+     */
+    std::unordered_map<types::EntityId, Node, EntityIdHash> rebuild_all() const;
 
 private:
     const AtomLog& m_log;
