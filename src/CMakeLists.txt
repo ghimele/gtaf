@@ -34,6 +34,7 @@ add_library(gtaf_lib STATIC
   core/atom_log.cpp
   core/node.cpp
   core/projection_engine.cpp
+  core/temporal_chunk.cpp
   # Add more .cpp files here as they are created
 )
 

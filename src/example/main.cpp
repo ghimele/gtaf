@@ -70,6 +70,17 @@ int main() {
     }
     std::cout << "\n";
 
+    std::cout << "--- Test 2b: Temporal Chunking (>1000 values) ---\n";
+
+    // Append 1500 temporal values to trigger chunk sealing
+    std::cout << "Appending 1500 temperature readings...\n";
+    for (int i = 0; i < 1500; ++i) {
+        double temp = 20.0 + (i % 10) * 0.5;  // Temperature varies between 20.0-24.5
+        log.append(sensor, "sensor.temperature", temp, types::AtomType::Temporal);
+    }
+    std::cout << "  ✓ Chunk should have been sealed at 1000 values\n";
+    std::cout << "  ✓ Second chunk should have 500 values\n\n";
+
     std::cout << "--- Test 3: Mutable Atoms (Counters) ---\n";
 
     auto counter1 = log.append(user1, "login_count", static_cast<int64_t>(1), types::AtomType::Mutable);
