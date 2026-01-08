@@ -83,9 +83,52 @@ public:
     };
 
     /**
+     * @brief Result of a temporal range query
+     */
+    struct TemporalQueryResult {
+        std::vector<types::AtomValue> values;
+        std::vector<types::Timestamp> timestamps;
+        std::vector<types::LogSequenceNumber> lsns;
+        size_t total_count = 0;
+    };
+
+    /**
      * @brief Get deduplication statistics
      */
     Stats get_stats() const;
+
+    /**
+     * @brief Query temporal data by timestamp range
+     *
+     * Scans both active and sealed chunks for the given (entity, tag) stream.
+     * Returns all values within [start_time, end_time] inclusive.
+     *
+     * @param entity The entity whose temporal data to query
+     * @param tag The property tag (e.g., "sensor.temperature")
+     * @param start_time Start of time range (inclusive)
+     * @param end_time End of time range (inclusive)
+     * @return TemporalQueryResult with matching values
+     */
+    TemporalQueryResult query_temporal_range(
+        types::EntityId entity,
+        const std::string& tag,
+        types::Timestamp start_time,
+        types::Timestamp end_time
+    ) const;
+
+    /**
+     * @brief Query all temporal data for a given stream
+     *
+     * Returns all values from both active and sealed chunks.
+     *
+     * @param entity The entity whose temporal data to query
+     * @param tag The property tag
+     * @return TemporalQueryResult with all values
+     */
+    TemporalQueryResult query_temporal_all(
+        types::EntityId entity,
+        const std::string& tag
+    ) const;
 
 private:
     /**
@@ -148,6 +191,16 @@ private:
      * @brief Emit snapshot atom for a mutable state
      */
     void emit_snapshot(const MutableState& state);
+
+    /**
+     * @brief Helper to collect values from a chunk within time range
+     */
+    void collect_chunk_values(
+        const TemporalChunk& chunk,
+        types::Timestamp start_time,
+        types::Timestamp end_time,
+        TemporalQueryResult& result
+    ) const;
 
     // Sequential ID counter (for Temporal and Mutable atoms)
     uint64_t m_next_atom_id = 0;

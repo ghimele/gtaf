@@ -1,6 +1,6 @@
 #pragma once
 
-#include "types.hpp"
+#include "types.h"
 #include <iostream>
 
 namespace gtaf::types {

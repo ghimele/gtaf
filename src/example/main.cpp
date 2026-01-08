@@ -79,7 +79,28 @@ int main() {
         log.append(sensor, "sensor.temperature", temp, types::AtomType::Temporal);
     }
     std::cout << "  ✓ Chunk should have been sealed at 1000 values\n";
-    std::cout << "  ✓ Second chunk should have 500 values\n\n";
+    std::cout << "  ✓ Second chunk should have 500 values\n";
+
+    // Query all temporal data
+    std::cout << "\nQuerying all temporal data...\n";
+    auto all_temps = log.query_temporal_all(sensor, "sensor.temperature");
+    std::cout << "  Retrieved " << all_temps.total_count << " temperature readings\n";
+
+    if (all_temps.total_count == 1500) {
+        std::cout << "  ✓ All 1500 values successfully queried\n";
+    }
+
+    // Show sample of first and last values
+    if (all_temps.values.size() >= 2) {
+        if (std::holds_alternative<double>(all_temps.values[0]) &&
+            std::holds_alternative<double>(all_temps.values.back())) {
+            double first = std::get<double>(all_temps.values[0]);
+            double last = std::get<double>(all_temps.values.back());
+            std::cout << "  First value: " << first << "\n";
+            std::cout << "  Last value: " << last << "\n";
+        }
+    }
+    std::cout << "\n";
 
     std::cout << "--- Test 3: Mutable Atoms (Counters with Delta Logging) ---\n";
 
