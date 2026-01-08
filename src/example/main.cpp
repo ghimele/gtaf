@@ -121,7 +121,7 @@ int main() {
                   : 0.0)
               << "%\n\n";
 
-    std::cout << "--- Projection Rebuild ---\n";
+    std::cout << "--- Projection Rebuild & Value Queries ---\n";
     core::ProjectionEngine projector(log);
 
     auto user1_node = projector.rebuild(user1);
@@ -132,7 +132,40 @@ int main() {
     std::cout << "Rebuilt " << user1_node.history().size() << " atoms for user1\n";
     std::cout << "Rebuilt " << user2_node.history().size() << " atoms for user2\n";
     std::cout << "Rebuilt " << recipe_node.history().size() << " atoms for recipe\n";
-    std::cout << "Rebuilt " << sensor_node.history().size() << " atoms for sensor\n";
+    std::cout << "Rebuilt " << sensor_node.history().size() << " atoms for sensor\n\n";
+
+    std::cout << "--- Fast Value Reads (No Log Traversal) ---\n";
+
+    // Query user1's status (canonical)
+    if (auto status = user1_node.get("user.status")) {
+        if (std::holds_alternative<std::string>(*status)) {
+            std::cout << "user1.status = '" << std::get<std::string>(*status) << "'\n";
+        }
+    }
+
+    // Query user1's login_count (mutable)
+    if (auto count = user1_node.get("login_count")) {
+        if (std::holds_alternative<int64_t>(*count)) {
+            std::cout << "user1.login_count = " << std::get<int64_t>(*count) << "\n";
+        }
+    }
+
+    // Get all properties for user1
+    std::cout << "\nAll properties for user1:\n";
+    auto all_props = user1_node.get_all();
+    std::cout << "  Total properties: " << all_props.size() << "\n";
+    for (const auto& [tag, value] : all_props) {
+        std::cout << "  - " << tag;
+        if (std::holds_alternative<std::string>(value)) {
+            std::cout << " = '" << std::get<std::string>(value) << "'";
+        } else if (std::holds_alternative<int64_t>(value)) {
+            std::cout << " = " << std::get<int64_t>(value);
+        }
+        std::cout << "\n";
+    }
+
+    std::cout << "\n  ✓ Values retrieved from projection (no atom log access)\n";
+    std::cout << "  ✓ O(1) lookup per property\n";
 
     std::cout << "\n=== Demo Complete ===\n";
     return 0;
