@@ -277,4 +277,63 @@ void AtomLog::emit_snapshot(const MutableState& state) {
     ++m_snapshot_count;
 }
 
+AtomLog::TemporalQueryResult AtomLog::query_temporal_range(
+    types::EntityId entity,
+    const std::string& tag,
+    types::Timestamp start_time,
+    types::Timestamp end_time
+) const {
+    TemporalQueryResult result;
+    TemporalKey key{entity, tag};
+
+    // Query sealed chunks
+    for (const auto& [chunk_id, chunk] : m_sealed_chunks) {
+        const auto& metadata = chunk.metadata();
+
+        // Check if chunk belongs to this stream
+        if (metadata.entity_id == entity && metadata.tag == tag) {
+            collect_chunk_values(chunk, start_time, end_time, result);
+        }
+    }
+
+    // Query active chunk (if exists)
+    if (auto it = m_active_chunks.find(key); it != m_active_chunks.end()) {
+        collect_chunk_values(it->second, start_time, end_time, result);
+    }
+
+    result.total_count = result.values.size();
+    return result;
+}
+
+AtomLog::TemporalQueryResult AtomLog::query_temporal_all(
+    types::EntityId entity,
+    const std::string& tag
+) const {
+    // Query with full timestamp range
+    return query_temporal_range(entity, tag, 0, UINT64_MAX);
+}
+
+void AtomLog::collect_chunk_values(
+    const TemporalChunk& chunk,
+    types::Timestamp start_time,
+    types::Timestamp end_time,
+    TemporalQueryResult& result
+) const {
+    const auto& timestamps = chunk.timestamps();
+    const auto& values = chunk.values();
+    const auto& lsns = chunk.lsns();
+
+    // Iterate through all values in chunk
+    for (size_t i = 0; i < timestamps.size(); ++i) {
+        types::Timestamp ts = timestamps[i];
+
+        // Check if timestamp is within range
+        if (ts >= start_time && ts <= end_time) {
+            result.values.push_back(values[i]);
+            result.timestamps.push_back(ts);
+            result.lsns.push_back(lsns[i]);
+        }
+    }
+}
+
 } // namespace gtaf::core
