@@ -188,6 +188,85 @@ int main() {
     std::cout << "\n  ✓ Values retrieved from projection (no atom log access)\n";
     std::cout << "  ✓ O(1) lookup per property\n";
 
+    std::cout << "\n--- Persistence: Save & Load ---\n";
+
+    // Save the entire atom log to disk
+    std::string filepath = "gtaf_demo.dat";
+    std::cout << "Saving atom log to '" << filepath << "'...\n";
+
+    if (log.save(filepath)) {
+        std::cout << "  ✓ Successfully saved " << log.all().size() << " atoms\n";
+    } else {
+        std::cout << "  ✗ Failed to save\n";
+        return 1;
+    }
+
+    // Create a new log and load from disk
+    core::AtomLog loaded_log;
+    std::cout << "\nLoading atom log from '" << filepath << "'...\n";
+
+    if (loaded_log.load(filepath)) {
+        std::cout << "  ✓ Successfully loaded " << loaded_log.all().size() << " atoms\n";
+
+        // Verify statistics match
+        auto loaded_stats = loaded_log.get_stats();
+        std::cout << "\nLoaded Statistics:\n";
+        std::cout << "  Total atoms: " << loaded_stats.total_atoms << "\n";
+        std::cout << "  Canonical atoms: " << loaded_stats.canonical_atoms << "\n";
+        std::cout << "  Unique canonical: " << loaded_stats.unique_canonical_atoms << "\n";
+
+        // Rebuild projection from loaded log
+        core::ProjectionEngine loaded_projector(loaded_log);
+        auto loaded_user1 = loaded_projector.rebuild(user1);
+
+        // Verify data integrity
+        auto all_props= loaded_user1.get_all();
+        std::cout << "  Total properties: " << all_props.size() << "\n";
+        for (const auto& [tag, value] : all_props) {
+            std::cout << "  - " << tag;
+            if (std::holds_alternative<std::string>(value)) {
+                std::cout << " = '" << std::get<std::string>(value) << "'";
+            } else if (std::holds_alternative<int64_t>(value)) {
+                std::cout << " = " << std::get<int64_t>(value);
+            }
+            std::cout << "\n";
+        }
+
+        std::cout << "\nVerifying data integrity...\n";
+        if (auto status = loaded_user1.get("user.status")) {
+            if (std::holds_alternative<std::string>(*status)) {
+                std::string loaded_status = std::get<std::string>(*status);
+                std::cout << "  Loaded user1.status = '" << loaded_status << "'\n";
+                if (loaded_status == "inactive") {
+                    std::cout << "  ✓ Data integrity verified!\n";
+                } else {
+                    std::cout << "  ✗ Data mismatch!\n";
+                }
+            }
+        }
+
+        if (auto count = loaded_user1.get("login_count")) {
+            if (std::holds_alternative<int64_t>(*count)) {
+                int64_t loaded_count = std::get<int64_t>(*count);
+                std::cout << "  Loaded user1.login_count = " << loaded_count << "\n";
+                if (loaded_count == 12) {
+                    std::cout << "  ✓ Mutable state preserved!\n";
+                }
+            }
+        }
+
+        // Test temporal query on loaded data
+        auto loaded_temps = loaded_log.query_temporal_all(sensor, "sensor.temperature");
+        std::cout << "  Loaded temporal data: " << loaded_temps.total_count << " readings\n";
+        if (loaded_temps.total_count == 1500) {
+            std::cout << "  ✓ Temporal data preserved!\n";
+        }
+
+    } else {
+        std::cout << "  ✗ Failed to load\n";
+        return 1;
+    }
+
     std::cout << "\n=== Demo Complete ===\n";
     return 0;
 }

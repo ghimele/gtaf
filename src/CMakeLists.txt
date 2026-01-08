@@ -36,6 +36,7 @@ add_library(gtaf_lib STATIC
   core/projection_engine.cpp
   core/temporal_chunk.cpp
   core/mutable_state.cpp
+  core/persistence.cpp
   # Add more .cpp files here as they are created
 )
 
