@@ -122,14 +122,23 @@ Atom AtomLog::append_mutable(
     std::string tag,
     types::AtomValue value
 ) {
-    // Generate sequential ID for mutable atoms
-    types::AtomId atom_id = generate_sequential_id();
-
     types::LogSequenceNumber lsn{++m_next_lsn};
     types::Timestamp now = get_current_timestamp();
 
+    // Get or create mutable state for this property
+    MutableState& state = get_or_create_mutable_state(entity, tag, value);
+
+    // Apply mutation and log delta
+    state.mutate(value, lsn, now);
+
+    // Check if snapshot should be emitted
+    if (state.should_snapshot(m_snapshot_delta_threshold)) {
+        emit_snapshot(state);
+    }
+
+    // Return atom reflecting current state (for backwards compatibility)
     Atom atom(
-        atom_id,
+        state.metadata().atom_id,
         entity,
         types::AtomType::Mutable,
         std::move(tag),
@@ -139,7 +148,6 @@ Atom AtomLog::append_mutable(
     );
 
     m_atoms.push_back(atom);
-    // TODO: Implement delta logging and snapshot emission
     return atom;
 }
 
@@ -208,6 +216,65 @@ void AtomLog::seal_and_rotate_chunk(const TemporalKey& key) {
     m_active_chunks.erase(it);
 
     // Note: Next call to get_or_create_active_chunk() will create a new chunk
+}
+
+MutableState& AtomLog::get_or_create_mutable_state(
+    const types::EntityId& entity,
+    const std::string& tag,
+    const types::AtomValue& initial_value
+) {
+    // Create key for this mutable property
+    TemporalKey key{entity, tag};
+
+    // Check if mutable state already exists
+    auto it = m_mutable_states.find(key);
+    if (it != m_mutable_states.end()) {
+        return it->second;
+    }
+
+    // Create new mutable state
+    types::AtomId atom_id = generate_sequential_id();
+    types::LogSequenceNumber lsn{m_next_lsn};
+    types::Timestamp now = get_current_timestamp();
+
+    auto [new_it, inserted] = m_mutable_states.emplace(
+        std::piecewise_construct,
+        std::forward_as_tuple(key),
+        std::forward_as_tuple(atom_id, entity, tag, initial_value, lsn, now)
+    );
+
+    return new_it->second;
+}
+
+void AtomLog::emit_snapshot(const MutableState& state) {
+    // Emit snapshot as a Canonical atom (immutable recovery point)
+    const auto& metadata = state.metadata();
+
+    types::LogSequenceNumber lsn{++m_next_lsn};
+    types::Timestamp now = get_current_timestamp();
+
+    // Create snapshot atom with special tag marking it as snapshot
+    std::string snapshot_tag = metadata.tag + ".snapshot";
+
+    // Snapshots can be content-addressed (deduplicated)
+    types::AtomId snapshot_id = types::compute_content_hash(snapshot_tag, state.current_value());
+
+    Atom snapshot_atom(
+        snapshot_id,
+        metadata.entity_id,
+        types::AtomType::Canonical,  // Snapshots are immutable
+        std::move(snapshot_tag),
+        state.current_value(),
+        lsn,
+        now
+    );
+
+    m_atoms.push_back(snapshot_atom);
+
+    // Mark snapshot in mutable state (clears delta history)
+    const_cast<MutableState&>(state).mark_snapshot(lsn, now);
+
+    ++m_snapshot_count;
 }
 
 } // namespace gtaf::core
