@@ -41,10 +41,12 @@ jobs:
       - name: Run tests
         if: always()
         run: |
-          if [ -f build/CTestTestfile.cmake ]; then
-            ctest --test-dir build --output-on-failure
+          if [ -f build/gtaf_test ]; then
+            echo "Running GTAF unit tests..."
+            ./build/gtaf_test
           else
-            echo "No tests found, skipping."
+            echo "Test executable not found, skipping tests."
+            exit 1
           fi
       - name: Package artifacts
         run: |

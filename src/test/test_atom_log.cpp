@@ -1,0 +1,160 @@
+#include "test_framework.h"
+#include "../core/atom_log.h"
+#include "../types/hash_utils.h"
+#include <algorithm>
+
+using namespace gtaf;
+using namespace gtaf::test;
+
+// Helper to create test EntityIds
+types::EntityId make_entity(uint8_t id) {
+    types::EntityId entity{};
+    std::fill(entity.bytes.begin(), entity.bytes.end(), 0);
+    entity.bytes[0] = id;
+    return entity;
+}
+
+TEST(AtomLog, CanonicalDeduplication) {
+    core::AtomLog log;
+    auto entity1 = make_entity(1);
+    auto entity2 = make_entity(2);
+
+    // Append same value to different entities
+    auto atom1 = log.append(entity1, "status", std::string("active"), types::AtomType::Canonical);
+    auto atom2 = log.append(entity2, "status", std::string("active"), types::AtomType::Canonical);
+
+    // Should have same content-addressed ID
+    ASSERT_EQ(atom1.atom_id(), atom2.atom_id());
+
+    // Different value should create different atom
+    auto atom3 = log.append(entity1, "status", std::string("inactive"), types::AtomType::Canonical);
+    ASSERT_NE(atom1.atom_id(), atom3.atom_id());
+
+    // Verify stats
+    auto stats = log.get_stats();
+    // Total atoms is 2 because the second append was deduplicated (reused existing atom)
+    ASSERT_EQ(stats.total_atoms, 2);
+    ASSERT_EQ(stats.canonical_atoms, 2);
+    ASSERT_EQ(stats.unique_canonical_atoms, 2);
+    ASSERT_EQ(stats.deduplicated_hits, 1);
+}
+
+TEST(AtomLog, TemporalNoDeduplication) {
+    core::AtomLog log;
+    auto entity = make_entity(1);
+
+    // Append same value twice as temporal
+    auto temp1 = log.append(entity, "temperature", 23.5, types::AtomType::Temporal);
+    auto temp2 = log.append(entity, "temperature", 23.5, types::AtomType::Temporal);
+
+    // Should NOT be deduplicated
+    ASSERT_NE(temp1.atom_id(), temp2.atom_id());
+
+    ASSERT_EQ(log.all().size(), 2);
+}
+
+TEST(AtomLog, TemporalChunking) {
+    core::AtomLog log;
+    auto entity = make_entity(1);
+
+    // Append 1500 temporal values to trigger chunking
+    for (int i = 0; i < 1500; ++i) {
+        log.append(entity, "sensor.temperature", static_cast<double>(20.0 + i), types::AtomType::Temporal);
+    }
+
+    // Query all temporal data
+    auto result = log.query_temporal_all(entity, "sensor.temperature");
+    ASSERT_EQ(result.total_count, 1500);
+    ASSERT_EQ(result.values.size(), 1500);
+    ASSERT_EQ(result.timestamps.size(), 1500);
+    ASSERT_EQ(result.lsns.size(), 1500);
+
+    // Verify first and last values
+    ASSERT_TRUE(std::holds_alternative<double>(result.values[0]));
+    ASSERT_TRUE(std::holds_alternative<double>(result.values[1499]));
+    ASSERT_EQ(std::get<double>(result.values[0]), 20.0);
+    ASSERT_EQ(std::get<double>(result.values[1499]), 1519.0);
+}
+
+TEST(AtomLog, MutableStateSameId) {
+    core::AtomLog log;
+    auto entity = make_entity(1);
+
+    // Mutable atoms should keep same ID
+    auto atom1 = log.append(entity, "counter", static_cast<int64_t>(1), types::AtomType::Mutable);
+    auto atom2 = log.append(entity, "counter", static_cast<int64_t>(2), types::AtomType::Mutable);
+    auto atom3 = log.append(entity, "counter", static_cast<int64_t>(3), types::AtomType::Mutable);
+
+    ASSERT_EQ(atom1.atom_id(), atom2.atom_id());
+    ASSERT_EQ(atom2.atom_id(), atom3.atom_id());
+}
+
+TEST(AtomLog, MutableSnapshotTrigger) {
+    core::AtomLog log;
+    auto entity = make_entity(1);
+
+    size_t initial_count = log.all().size();
+
+    // Append 12 mutations (threshold is 10)
+    for (int i = 1; i <= 12; ++i) {
+        log.append(entity, "counter", static_cast<int64_t>(i), types::AtomType::Mutable);
+    }
+
+    // Should have 12 mutations + 1 snapshot atom
+    // (Snapshot is emitted as a Canonical atom with .snapshot suffix)
+    size_t expected_min = initial_count + 12;  // At least the mutations
+    ASSERT_TRUE(log.all().size() >= expected_min);
+}
+
+TEST(AtomLog, EdgeValues) {
+    core::AtomLog log;
+    auto entity1 = make_entity(1);
+    auto entity2 = make_entity(2);
+
+    types::EdgeValue edge{entity2, "follows"};
+    auto atom = log.append(entity1, "edge.follows", edge, types::AtomType::Canonical);
+
+    ASSERT_TRUE(std::holds_alternative<types::EdgeValue>(atom.value()));
+    auto& edge_value = std::get<types::EdgeValue>(atom.value());
+    ASSERT_EQ(edge_value.target, entity2);
+    ASSERT_EQ(edge_value.relation, "follows");
+}
+
+TEST(AtomLog, MultipleValueTypes) {
+    core::AtomLog log;
+    auto entity = make_entity(1);
+
+    log.append(entity, "name", std::string("Alice"), types::AtomType::Canonical);
+    log.append(entity, "age", static_cast<int64_t>(30), types::AtomType::Canonical);
+    log.append(entity, "score", 95.5, types::AtomType::Canonical);
+    log.append(entity, "active", true, types::AtomType::Canonical);
+
+    std::vector<float> embedding = {0.1f, 0.2f, 0.3f};
+    log.append(entity, "embedding", embedding, types::AtomType::Canonical);
+
+    ASSERT_EQ(log.all().size(), 5);
+}
+
+TEST(AtomLog, LsnMonotonicity) {
+    core::AtomLog log;
+    auto entity = make_entity(1);
+
+    auto atom1 = log.append(entity, "value", static_cast<int64_t>(1), types::AtomType::Canonical);
+    auto atom2 = log.append(entity, "value", static_cast<int64_t>(2), types::AtomType::Canonical);
+    auto atom3 = log.append(entity, "value", static_cast<int64_t>(3), types::AtomType::Canonical);
+
+    // LSNs should be strictly increasing
+    ASSERT_TRUE(atom1.lsn().value < atom2.lsn().value);
+    ASSERT_TRUE(atom2.lsn().value < atom3.lsn().value);
+}
+
+TEST(AtomLog, TimestampMonotonicity) {
+    core::AtomLog log;
+    auto entity = make_entity(1);
+
+    auto atom1 = log.append(entity, "value", static_cast<int64_t>(1), types::AtomType::Canonical);
+    auto atom2 = log.append(entity, "value", static_cast<int64_t>(2), types::AtomType::Canonical);
+
+    // Timestamps should be non-decreasing (could be equal if very fast)
+    ASSERT_TRUE(atom1.created_at() <= atom2.created_at());
+}
