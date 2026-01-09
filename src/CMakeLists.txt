@@ -49,13 +49,19 @@ target_include_directories(gtaf_lib
 target_compile_features(gtaf_lib PUBLIC cxx_std_20)
 
 # ------------------------------------------------------------
-# 4. Executable target
+# 4. Executable targets
 # ------------------------------------------------------------
 add_executable(gtaf_example
   example/main.cpp
 )
 
 target_link_libraries(gtaf_example PRIVATE gtaf_lib)
+
+add_executable(gtaf_history_example
+  example/history_example.cpp
+)
+
+target_link_libraries(gtaf_history_example PRIVATE gtaf_lib)
 
 # Embed version in the executable (Linux + Windows)
 target_compile_definitions(gtaf_example PRIVATE
