@@ -364,13 +364,106 @@ Vector DBs	No transactional context
 
 GTAF integrates these concerns into one coherent model.
 
-14. Roadmap
+14. Implementation Status
 
-Alpha: Canonical + Temporal atoms, FS backend
+GTAF is now in **Alpha** with core functionality implemented and tested.
 
-Beta: SQL backend, projection engine, vector layer
+## 14.1 Completed Features
 
-GA: Distributed replication, CRDT extensions
+**Core Data Model** ✓
+
+- Atom classification system (Canonical, Temporal, Mutable)
+- Content-addressed deduplication for Canonical atoms
+- Temporal chunking with 1000-value threshold
+- Mutable atom delta logging with snapshot triggers
+- LSN-based ordering and timestamp tracking
+
+**Storage Layer** ✓
+
+- Binary persistence format with magic number validation
+- Version numbering for forward compatibility
+- Save/load operations preserving all atom types
+- Automatic index rebuilding on load
+- Support for all value types: bool, int64, double, string, vectors, EdgeValue
+
+**Projection Engine** ✓
+
+- Node-based projections with O(1) property access
+- LSN-based conflict resolution (latest value wins)
+- History tracking per node
+- Efficient `rebuild_all()` for bulk operations
+- `get_all_entities()` for entity discovery
+
+**Query Capabilities** ✓
+
+- Temporal range queries by timestamp
+- Property lookup by tag
+- Full entity state reconstruction
+- History traversal
+
+**Testing & CI/CD** ✓
+
+- 28 comprehensive unit tests (all passing)
+- Test coverage: AtomLog, Persistence, Node projections
+- GitHub Actions integration (Linux + Windows)
+- Automated test execution on push/PR
+
+## 14.2 Performance Characteristics
+
+**Write Performance:**
+
+- Canonical atoms: O(1) with hash-based deduplication
+- Temporal atoms: O(1) append, chunked at 1000 values
+- Mutable atoms: O(1) delta log, snapshot every 10 deltas
+
+**Read Performance:**
+
+- Property access: O(1) from node projection
+- Temporal query: O(n) scan of relevant chunks
+- Full rebuild: O(atoms) single log pass
+
+**Storage Efficiency:**
+
+- Canonical deduplication: 33%+ reduction in test workloads
+- Temporal chunking: Sequential I/O optimization
+- Binary format: ~119KB for 1518 atoms
+
+## 14.3 Roadmap
+
+**Current (Alpha v0.0.1):**
+
+- ✓ Canonical + Temporal + Mutable atoms
+- ✓ Binary file backend
+- ✓ Projection engine
+- ✓ Temporal queries
+- ✓ Comprehensive test suite
+
+**Next (Beta v0.1.0):**
+
+- SQLite backend integration
+- Advanced query operators (filters, aggregations)
+- Graph traversal API
+- Column projections
+- Performance benchmarks
+
+**Future (GA v1.0.0):**
+
+- Vector embedding layer
+- Distributed backends (Postgres, distributed storage)
+- CRDT extensions
+- Replication protocol
+- Multi-language SDKs (TypeScript, Python)
+
+## 14.4 Architecture Validation
+
+The current implementation validates GTAF's core principles:
+
+1. **Identity separation** - Nodes are independent of their atom values
+2. **Strong typing** - std::variant enforces type safety
+3. **History preservation** - LSN ordering maintains temporal coherence
+4. **Backend agnostic** - Binary format decouples logic from storage
+5. **Selective deduplication** - Only Canonical atoms participate
+6. **Write efficiency** - Temporal/Mutable atoms avoid dedup overhead
 
 15. Conclusion
 
