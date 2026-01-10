@@ -103,6 +103,13 @@ target_compile_definitions(gtaf_test PRIVATE
 )
 
 # ------------------------------------------------------------
-# 7. Final message
+# 7. Enable CTest and add tests
+# ------------------------------------------------------------
+enable_testing()
+
+add_test(NAME gtaf_tests COMMAND gtaf_test)
+
+# ------------------------------------------------------------
+# 8. Final message
 # ------------------------------------------------------------
 message(STATUS "GTAF Framework Build System Configured.")
