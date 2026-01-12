@@ -81,11 +81,15 @@ TEST(Persistence, PreserveAtomOrder) {
     core::AtomLog loaded_log;
     ASSERT_TRUE(loaded_log.load(filepath));
 
-    // Check LSN order is preserved
+    // Check LSN order is preserved in entity references
+    auto refs = loaded_log.get_entity_atoms(entity);
+    ASSERT_EQ(refs.size(), 3);
+    ASSERT_TRUE(refs[0].lsn.value < refs[1].lsn.value);
+    ASSERT_TRUE(refs[1].lsn.value < refs[2].lsn.value);
+
+    // Check content atoms are preserved
     const auto& atoms = loaded_log.all();
     ASSERT_EQ(atoms.size(), 3);
-    ASSERT_TRUE(atoms[0].lsn().value < atoms[1].lsn().value);
-    ASSERT_TRUE(atoms[1].lsn().value < atoms[2].lsn().value);
 
     std::remove(filepath.c_str());
 }

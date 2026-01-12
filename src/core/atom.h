@@ -8,21 +8,17 @@ class Atom final {
 public:
     Atom(
         types::AtomId atom_id,
-        types::EntityId entity_id,
         types::AtomType classification,
         std::string type_tag,
         types::AtomValue value,
-        types::LogSequenceNumber lsn,
         types::Timestamp created_at,
         types::TransactionId tx_id = {},
         uint32_t flags = 0
     )
         : m_atom_id(atom_id),
-          m_entity_id(entity_id),
           m_classification(classification),
           m_type_tag(std::move(type_tag)),
           m_value(std::move(value)),
-          m_lsn(lsn),
           m_created_at(created_at),
           m_tx_id(tx_id),
           m_flags(flags)
@@ -30,7 +26,7 @@ public:
 
     // ---- Identity ----
     [[nodiscard]] types::AtomId atom_id() const noexcept { return m_atom_id; }
-    [[nodiscard]] types::EntityId entity_id() const noexcept { return m_entity_id; }
+    // entity_id() removed - use AtomLog reference index instead
 
     // ---- Classification ----
     [[nodiscard]] types::AtomType classification() const noexcept { return m_classification; }
@@ -40,7 +36,7 @@ public:
     [[nodiscard]] const types::AtomValue& value() const noexcept { return m_value; }
 
     // ---- Append-only metadata ----
-    [[nodiscard]] types::LogSequenceNumber lsn() const noexcept { return m_lsn; }
+    // Note: LSN is now tracked per-entity in AtomLog reference layer
     [[nodiscard]] types::Timestamp created_at() const noexcept { return m_created_at; }
     [[nodiscard]] types::TransactionId tx_id() const noexcept { return m_tx_id; }
     [[nodiscard]] uint32_t flags() const noexcept { return m_flags; }
@@ -61,7 +57,7 @@ public:
 private:
     // ---- Identity ----
     types::AtomId   m_atom_id;
-    types::EntityId m_entity_id;
+    // entity_id removed - tracked in AtomLog reference layer
 
     // ---- Classification ----
     types::AtomType m_classification;
@@ -71,7 +67,7 @@ private:
     types::AtomValue m_value;
 
     // ---- Append-only metadata ----
-    types::LogSequenceNumber m_lsn;
+    // lsn removed - tracked per-entity in AtomLog reference layer
     types::Timestamp         m_created_at;
     types::TransactionId     m_tx_id;
     uint32_t                 m_flags;

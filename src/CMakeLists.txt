@@ -34,6 +34,7 @@ add_library(gtaf_lib STATIC
   core/atom_log.cpp
   core/node.cpp
   core/projection_engine.cpp
+  core/query_index.cpp
   core/temporal_chunk.cpp
   core/mutable_state.cpp
   core/persistence.cpp
@@ -62,6 +63,24 @@ add_executable(gtaf_history_example
 )
 
 target_link_libraries(gtaf_history_example PRIVATE gtaf_lib)
+
+add_executable(gtaf_import_workrequest
+  example/import_workrequest.cpp
+)
+
+target_link_libraries(gtaf_import_workrequest PRIVATE gtaf_lib)
+
+add_executable(gtaf_query_workrequest
+  example/query_workrequest.cpp
+)
+
+target_link_libraries(gtaf_query_workrequest PRIVATE gtaf_lib)
+
+add_executable(gtaf_query_workrequest_indexed
+  example/query_workrequest_indexed.cpp
+)
+
+target_link_libraries(gtaf_query_workrequest_indexed PRIVATE gtaf_lib)
 
 # Embed version in the executable (Linux + Windows)
 target_compile_definitions(gtaf_example PRIVATE

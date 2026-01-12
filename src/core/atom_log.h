@@ -40,6 +40,23 @@ struct TemporalKeyHash {
     }
 };
 
+// Hash function for EntityId
+struct EntityIdHash {
+    std::size_t operator()(const types::EntityId& id) const noexcept {
+        uint64_t hash;
+        std::memcpy(&hash, id.bytes.data(), sizeof(hash));
+        return static_cast<std::size_t>(hash);
+    }
+};
+
+// Reference from an entity to an atom (with per-entity LSN)
+struct AtomReference {
+    types::AtomId atom_id;  // Which atom is referenced
+    types::LogSequenceNumber lsn;  // LSN for this entity's reference
+
+    bool operator==(const AtomReference& other) const = default;
+};
+
 /**
  * @brief Append-only log for storing Atoms with classification-aware write paths
  *
@@ -71,6 +88,31 @@ public:
      * @brief Get all atoms in the log
      */
     const std::vector<Atom>& all() const;
+
+    /**
+     * @brief Get all atom references for a specific entity
+     *
+     * Returns references in chronological order (sorted by LSN).
+     *
+     * @param entity The entity whose atoms to retrieve
+     * @return Vector of AtomReference (AtomId + LSN pairs)
+     */
+    std::vector<AtomReference> get_entity_atoms(types::EntityId entity) const;
+
+    /**
+     * @brief Get an atom by its AtomId
+     *
+     * @param atom_id The content-based ID of the atom
+     * @return Pointer to atom if found, nullptr otherwise
+     */
+    const Atom* get_atom(types::AtomId atom_id) const;
+
+    /**
+     * @brief Get all entity IDs that have atoms
+     *
+     * @return Vector of all entity IDs in the reference layer
+     */
+    std::vector<types::EntityId> get_all_entities() const;
 
     /**
      * @brief Deduplication and storage statistics
@@ -238,12 +280,31 @@ private:
     // Log sequence number (for all atoms)
     uint64_t m_next_lsn = 0;
 
-    // Append-only atom storage
+    // ===== CONTENT LAYER (Deduplicated Storage) =====
+
+    // Append-only atom storage (content only, no entity associations)
     std::vector<Atom> m_atoms;
 
+    // Content index: AtomId -> index in m_atoms
+    // Used for all atom types to enable efficient lookup
+    std::unordered_map<types::AtomId, size_t, AtomIdHash> m_content_index;
+
     // Deduplication map: hash -> index in m_atoms
-    // Only used for Canonical atoms
+    // Only used for Canonical atoms (DEPRECATED - merged with m_content_index)
+    // TODO: Remove m_canonical_dedup_map after verifying m_content_index works
     std::unordered_map<types::AtomId, size_t, AtomIdHash> m_canonical_dedup_map;
+
+    // ===== REFERENCE LAYER (Entity-Atom Associations) =====
+
+    // Entity references: EntityId -> vector of (AtomId, LSN) pairs
+    // Tracks which atoms each entity references, with per-entity LSN
+    std::unordered_map<types::EntityId, std::vector<AtomReference>, EntityIdHash> m_entity_refs;
+
+    // ===== GARBAGE COLLECTION LAYER =====
+
+    // Reference counting: AtomId -> count of entities referencing it
+    // Enables garbage collection when refcount reaches zero
+    std::unordered_map<types::AtomId, uint32_t, AtomIdHash> m_refcounts;
 
     // --- Temporal Chunk Management ---
 

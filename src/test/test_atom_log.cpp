@@ -23,16 +23,26 @@ TEST(AtomLog, CanonicalDeduplication) {
     auto atom1 = log.append(entity1, "status", std::string("active"), types::AtomType::Canonical);
     auto atom2 = log.append(entity2, "status", std::string("active"), types::AtomType::Canonical);
 
-    // Should have same content-addressed ID
+    // Should have same content-addressed ID (content deduplication)
     ASSERT_EQ(atom1.atom_id(), atom2.atom_id());
+
+    // But both entities should have references
+    auto refs1 = log.get_entity_atoms(entity1);
+    auto refs2 = log.get_entity_atoms(entity2);
+    ASSERT_EQ(refs1.size(), 1);
+    ASSERT_EQ(refs2.size(), 1);
+    ASSERT_EQ(refs1[0].atom_id, refs2[0].atom_id);  // Same atom
 
     // Different value should create different atom
     auto atom3 = log.append(entity1, "status", std::string("inactive"), types::AtomType::Canonical);
     ASSERT_NE(atom1.atom_id(), atom3.atom_id());
 
-    // Verify stats
+    // Verify stats - now entity1 has 2 references
+    auto refs1_updated = log.get_entity_atoms(entity1);
+    ASSERT_EQ(refs1_updated.size(), 2);
+
     auto stats = log.get_stats();
-    // Total atoms is 2 because the second append was deduplicated (reused existing atom)
+    // Total content atoms is 2 (one for "active", one for "inactive")
     ASSERT_EQ(stats.total_atoms, 2);
     ASSERT_EQ(stats.canonical_atoms, 2);
     ASSERT_EQ(stats.unique_canonical_atoms, 2);
@@ -139,13 +149,17 @@ TEST(AtomLog, LsnMonotonicity) {
     core::AtomLog log;
     auto entity = make_entity(1);
 
-    auto atom1 = log.append(entity, "value", static_cast<int64_t>(1), types::AtomType::Canonical);
-    auto atom2 = log.append(entity, "value", static_cast<int64_t>(2), types::AtomType::Canonical);
-    auto atom3 = log.append(entity, "value", static_cast<int64_t>(3), types::AtomType::Canonical);
+    log.append(entity, "value", static_cast<int64_t>(1), types::AtomType::Canonical);
+    log.append(entity, "value", static_cast<int64_t>(2), types::AtomType::Canonical);
+    log.append(entity, "value", static_cast<int64_t>(3), types::AtomType::Canonical);
 
-    // LSNs should be strictly increasing
-    ASSERT_TRUE(atom1.lsn().value < atom2.lsn().value);
-    ASSERT_TRUE(atom2.lsn().value < atom3.lsn().value);
+    // Get entity references and verify LSNs are strictly increasing
+    auto refs = log.get_entity_atoms(entity);
+    ASSERT_EQ(refs.size(), 3);
+
+    // LSNs should be strictly increasing in the reference list
+    ASSERT_TRUE(refs[0].lsn.value < refs[1].lsn.value);
+    ASSERT_TRUE(refs[1].lsn.value < refs[2].lsn.value);
 }
 
 TEST(AtomLog, TimestampMonotonicity) {

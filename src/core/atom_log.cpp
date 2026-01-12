@@ -32,6 +32,31 @@ const std::vector<Atom>& AtomLog::all() const {
     return m_atoms;
 }
 
+std::vector<AtomReference> AtomLog::get_entity_atoms(types::EntityId entity) const {
+    auto it = m_entity_refs.find(entity);
+    if (it == m_entity_refs.end()) {
+        return {};  // No atoms for this entity
+    }
+    return it->second;  // Return copy of references (already sorted by LSN)
+}
+
+const Atom* AtomLog::get_atom(types::AtomId atom_id) const {
+    auto it = m_content_index.find(atom_id);
+    if (it == m_content_index.end()) {
+        return nullptr;  // Atom not found
+    }
+    return &m_atoms[it->second];
+}
+
+std::vector<types::EntityId> AtomLog::get_all_entities() const {
+    std::vector<types::EntityId> result;
+    result.reserve(m_entity_refs.size());
+    for (const auto& [entity, refs] : m_entity_refs) {
+        result.push_back(entity);
+    }
+    return result;
+}
+
 AtomLog::Stats AtomLog::get_stats() const {
     Stats stats;
     stats.total_atoms = m_atoms.size();
@@ -50,33 +75,45 @@ Atom AtomLog::append_canonical(
     types::AtomId atom_id = types::compute_content_hash(tag, value);
 
     // Check for existing atom with same hash (deduplication)
+    bool is_new_atom = false;
     if (auto it = m_canonical_dedup_map.find(atom_id); it != m_canonical_dedup_map.end()) {
-        // Atom already exists - return existing atom
+        // Content already exists - increment refcount and add entity reference
         ++m_dedup_hits;
-        return m_atoms[it->second];
+        ++m_refcounts[atom_id];
+    } else {
+        // New content - will create atom below
+        is_new_atom = true;
     }
 
-    // New canonical atom - create and store
+    // Add entity reference with per-entity LSN
     types::LogSequenceNumber lsn{++m_next_lsn};
-    types::Timestamp now = get_current_timestamp();
+    m_entity_refs[entity].push_back({atom_id, lsn});
 
-    Atom atom(
-        atom_id,
-        entity,
-        types::AtomType::Canonical,
-        std::move(tag),
-        std::move(value),
-        lsn,
-        now
-    );
+    // If new content, create and store atom
+    if (is_new_atom) {
+        types::Timestamp now = get_current_timestamp();
 
-    // Store in log and dedup map
-    size_t index = m_atoms.size();
-    m_atoms.push_back(atom);
-    m_canonical_dedup_map[atom_id] = index;
-    ++m_canonical_atom_count;
+        Atom atom(
+            atom_id,
+            types::AtomType::Canonical,
+            std::move(tag),
+            std::move(value),
+            now
+        );
 
-    return atom;
+        // Store in log, content index, and dedup map
+        size_t index = m_atoms.size();
+        m_atoms.push_back(atom);
+        m_content_index[atom_id] = index;
+        m_canonical_dedup_map[atom_id] = index;
+        m_refcounts[atom_id] = 1;
+        ++m_canonical_atom_count;
+
+        return atom;
+    } else {
+        // Return existing atom
+        return m_atoms[m_canonical_dedup_map[atom_id]];
+    }
 }
 
 Atom AtomLog::append_temporal(
@@ -101,21 +138,26 @@ Atom AtomLog::append_temporal(
         seal_and_rotate_chunk(key);
     }
 
-    // Generate sequential ID for backwards compatibility
+    // Generate sequential ID
     types::AtomId atom_id = generate_sequential_id();
 
-    // Return atom (for backwards compatibility)
+    // Add entity reference with per-entity LSN
+    m_entity_refs[entity].push_back({atom_id, lsn});
+
+    // Create atom (content only, no entity_id or lsn in Atom itself)
     Atom atom(
         atom_id,
-        entity,
         types::AtomType::Temporal,
         std::move(tag),
         std::move(value),
-        lsn,
         now
     );
 
+    // Store in content index and atoms
+    size_t index = m_atoms.size();
     m_atoms.push_back(atom);
+    m_content_index[atom_id] = index;
+
     return atom;
 }
 
@@ -138,18 +180,25 @@ Atom AtomLog::append_mutable(
         emit_snapshot(state);
     }
 
-    // Return atom reflecting current state (for backwards compatibility)
+    types::AtomId atom_id = state.metadata().atom_id;
+
+    // Add entity reference with per-entity LSN
+    m_entity_refs[entity].push_back({atom_id, lsn});
+
+    // Return atom reflecting current state
     Atom atom(
-        state.metadata().atom_id,
-        entity,
+        atom_id,
         types::AtomType::Mutable,
         std::move(tag),
         std::move(value),
-        lsn,
         now
     );
 
+    // Store in content index and atoms
+    size_t index = m_atoms.size();
     m_atoms.push_back(atom);
+    m_content_index[atom_id] = index;
+
     return atom;
 }
 
@@ -261,17 +310,21 @@ void AtomLog::emit_snapshot(const MutableState& state) {
     // Snapshots can be content-addressed (deduplicated)
     types::AtomId snapshot_id = types::compute_content_hash(snapshot_tag, state.current_value());
 
+    // Add entity reference for snapshot
+    m_entity_refs[metadata.entity_id].push_back({snapshot_id, lsn});
+
     Atom snapshot_atom(
         snapshot_id,
-        metadata.entity_id,
         types::AtomType::Canonical,  // Snapshots are immutable
         std::move(snapshot_tag),
         state.current_value(),
-        lsn,
         now
     );
 
+    // Store snapshot atom
+    size_t index = m_atoms.size();
     m_atoms.push_back(snapshot_atom);
+    m_content_index[snapshot_id] = index;
 
     // Mark snapshot in mutable state (clears delta history)
     const_cast<MutableState&>(state).mark_snapshot(lsn, now);
@@ -344,26 +397,37 @@ bool AtomLog::save(const std::string& filepath) const {
 
         // Write header
         writer.write_bytes("GTAF", 4);  // Magic
-        writer.write_u32(1);             // Version
+        writer.write_u32(2);             // Version 2 (new format with reference layer)
         writer.write_u64(m_next_lsn);
         writer.write_u64(m_next_atom_id);
         writer.write_u64(m_atoms.size());
 
-        // Write all atoms
+        // Write all atoms (content only, no entity_id or lsn)
         for (const auto& atom : m_atoms) {
             writer.write_atom_id(atom.atom_id());
-            writer.write_entity_id(atom.entity_id());
             writer.write_u8(static_cast<uint8_t>(atom.classification()));
             writer.write_string(atom.type_tag());
             writer.write_atom_value(atom.value());
-            writer.write_lsn(atom.lsn());
             writer.write_timestamp(atom.created_at());
         }
 
-        // Note: We only save m_atoms which preserves the log.
-        // Chunks and mutable states can be reconstructed on load if needed,
-        // but for simplicity we only persist the append-only atom log.
-        // This ensures perfect durability and simplicity.
+        // Write entity reference layer
+        writer.write_u64(m_entity_refs.size());
+        for (const auto& [entity, refs] : m_entity_refs) {
+            writer.write_entity_id(entity);
+            writer.write_u64(refs.size());
+            for (const auto& ref : refs) {
+                writer.write_atom_id(ref.atom_id);
+                writer.write_lsn(ref.lsn);
+            }
+        }
+
+        // Write refcounts for garbage collection
+        writer.write_u64(m_refcounts.size());
+        for (const auto& [atom_id, count] : m_refcounts) {
+            writer.write_atom_id(atom_id);
+            writer.write_u32(count);
+        }
 
         return true;
     } catch (const std::exception& e) {
@@ -385,14 +449,17 @@ bool AtomLog::load(const std::string& filepath) {
         }
 
         uint32_t version = reader.read_u32();
-        if (version != 1) {
-            std::cerr << "Unsupported version: " << version << "\n";
+        if (version != 2) {
+            std::cerr << "Unsupported version: " << version << " (expected 2)\n";
             return false;
         }
 
         // Clear current state
         m_atoms.clear();
+        m_content_index.clear();
         m_canonical_dedup_map.clear();
+        m_entity_refs.clear();
+        m_refcounts.clear();
         m_active_chunks.clear();
         m_sealed_chunks.clear();
         m_mutable_states.clear();
@@ -403,24 +470,47 @@ bool AtomLog::load(const std::string& filepath) {
         m_next_atom_id = reader.read_u64();
         uint64_t atom_count = reader.read_u64();
 
-        // Read atoms
+        // Read atoms (content only)
         m_atoms.reserve(atom_count);
         for (uint64_t i = 0; i < atom_count; ++i) {
             types::AtomId atom_id = reader.read_atom_id();
-            types::EntityId entity_id = reader.read_entity_id();
             types::AtomType type = static_cast<types::AtomType>(reader.read_u8());
             std::string tag = reader.read_string();
             types::AtomValue value = reader.read_atom_value();
-            types::LogSequenceNumber lsn = reader.read_lsn();
             types::Timestamp timestamp = reader.read_timestamp();
 
             // Reconstruct atom
-            Atom atom(atom_id, entity_id, type, std::move(tag), std::move(value), lsn, timestamp);
+            Atom atom(atom_id, type, std::move(tag), std::move(value), timestamp);
             m_atoms.push_back(std::move(atom));
+            m_content_index[atom_id] = i;
+        }
+
+        // Read entity reference layer
+        uint64_t entity_count = reader.read_u64();
+        for (uint64_t i = 0; i < entity_count; ++i) {
+            types::EntityId entity = reader.read_entity_id();
+            uint64_t ref_count = reader.read_u64();
+
+            std::vector<AtomReference> refs;
+            refs.reserve(ref_count);
+            for (uint64_t j = 0; j < ref_count; ++j) {
+                types::AtomId atom_id = reader.read_atom_id();
+                types::LogSequenceNumber lsn = reader.read_lsn();
+                refs.push_back({atom_id, lsn});
+            }
+
+            m_entity_refs[entity] = std::move(refs);
+        }
+
+        // Read refcounts
+        uint64_t refcount_size = reader.read_u64();
+        for (uint64_t i = 0; i < refcount_size; ++i) {
+            types::AtomId atom_id = reader.read_atom_id();
+            uint32_t count = reader.read_u32();
+            m_refcounts[atom_id] = count;
         }
 
         // Rebuild indexes and derived structures
-        // This reconstructs dedup maps, chunks, and mutable states from the log
         rebuild_indexes();
 
         return true;

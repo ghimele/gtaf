@@ -8,15 +8,7 @@
 
 namespace gtaf::core {
 
-// Hash function for EntityId to use in unordered_map
-struct EntityIdHash {
-    std::size_t operator()(const types::EntityId& id) const noexcept {
-        // Use first 8 bytes as hash
-        uint64_t hash;
-        std::memcpy(&hash, id.bytes.data(), sizeof(hash));
-        return static_cast<std::size_t>(hash);
-    }
-};
+// EntityIdHash is now defined in atom_log.h
 
 /**
  * @brief Engine for rebuilding Node projections from the atom log
@@ -63,8 +55,58 @@ public:
      */
     std::unordered_map<types::EntityId, Node, EntityIdHash> rebuild_all() const;
 
+    /**
+     * @brief Stream-process all nodes with a callback function
+     *
+     * Efficiently builds nodes in batches and processes them via callback,
+     * keeping memory usage bounded. This combines the performance of rebuild_all
+     * (single pass through atom log) with the memory efficiency of on-demand rebuilding.
+     *
+     * @param callback Function called for each (entity_id, node) pair
+     * @param batch_size Number of nodes to build before invoking callbacks (default: 1000)
+     *
+     * Example:
+     *   projector.rebuild_all_streaming([&](const EntityId& id, const Node& node) {
+     *       // Process node here - it will be freed after callback returns
+     *       if (matches_criteria(node)) { count++; }
+     *   });
+     */
+    template<typename Callback>
+    void rebuild_all_streaming(Callback callback, size_t batch_size = 1000) const;
+
 private:
     const AtomLog& m_log;
 };
+
+// Template implementation (must be in header)
+template<typename Callback>
+void ProjectionEngine::rebuild_all_streaming(Callback callback, size_t batch_size) const {
+    // Get all entities from the reference layer
+    auto entities = m_log.get_all_entities();
+
+    // Process entities in batches to control memory usage
+    std::unordered_map<types::EntityId, Node, EntityIdHash> batch_nodes;
+    batch_nodes.reserve(batch_size);
+
+    size_t processed = 0;
+    for (const auto& entity : entities) {
+        // Build node and add to current batch
+        batch_nodes.emplace(entity, rebuild(entity));
+
+        // When batch is full, process all nodes and clear
+        if (batch_nodes.size() >= batch_size) {
+            for (const auto& [ent_id, node] : batch_nodes) {
+                callback(ent_id, node);
+            }
+            batch_nodes.clear();
+            processed += batch_size;
+        }
+    }
+
+    // Process remaining nodes in final batch
+    for (const auto& [ent_id, node] : batch_nodes) {
+        callback(ent_id, node);
+    }
+}
 
 } // namespace gtaf::core
