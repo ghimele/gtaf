@@ -12,10 +12,13 @@ Node ProjectionEngine::rebuild(types::EntityId entity) const {
     Node node(entity);
 
     // Get all atom references for this entity (already sorted by LSN)
-    auto refs = m_log.get_entity_atoms(entity);
+    const auto* refs = m_log.get_entity_atoms(entity);
+    if (!refs) {
+        return node;  // No atoms for this entity
+    }
 
     // Apply each atom in chronological order
-    for (const auto& ref : refs) {
+    for (const auto& ref : *refs) {
         const Atom* atom = m_log.get_atom(ref.atom_id);
         if (atom) {
             node.apply(atom->atom_id(), atom->type_tag(), atom->value(), ref.lsn);

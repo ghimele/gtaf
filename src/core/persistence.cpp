@@ -1,6 +1,7 @@
 #include "persistence.h"
 #include <cstring>
 #include <stdexcept>
+#include <iostream>
 
 namespace gtaf::core {
 
@@ -97,6 +98,11 @@ BinaryReader::BinaryReader(const std::string& filepath)
     if (!m_stream) {
         throw std::runtime_error("Failed to open file for reading: " + filepath);
     }
+    // Pre-allocate buffer
+    m_buffer.resize(BUFFER_SIZE);
+    std::cerr << "[DEBUG] BinaryReader: Using " << (BUFFER_SIZE / (1024*1024)) << "MB buffer" << std::endl;
+    // Fill initial buffer
+    refill_buffer();
 }
 
 BinaryReader::~BinaryReader() {
@@ -105,26 +111,58 @@ BinaryReader::~BinaryReader() {
     }
 }
 
+void BinaryReader::refill_buffer() {
+    // Move remaining data to start of buffer
+    size_t remaining = m_buffer_end - m_buffer_pos;
+    if (remaining > 0 && m_buffer_pos > 0) {
+        std::memmove(m_buffer.data(), m_buffer.data() + m_buffer_pos, remaining);
+    }
+    m_buffer_pos = 0;
+    m_buffer_end = remaining;
+
+    // Read more data
+    m_stream.read(m_buffer.data() + remaining, BUFFER_SIZE - remaining);
+    m_buffer_end += m_stream.gcount();
+}
+
+void BinaryReader::ensure_available(size_t bytes) {
+    if (m_buffer_pos + bytes > m_buffer_end) {
+        refill_buffer();
+    }
+}
+
 uint8_t BinaryReader::read_u8() {
-    uint8_t value;
-    m_stream.read(reinterpret_cast<char*>(&value), sizeof(value));
-    return value;
+    ensure_available(1);
+    return static_cast<uint8_t>(m_buffer[m_buffer_pos++]);
 }
 
 uint32_t BinaryReader::read_u32() {
+    ensure_available(4);
     uint32_t value;
-    m_stream.read(reinterpret_cast<char*>(&value), sizeof(value));
+    std::memcpy(&value, m_buffer.data() + m_buffer_pos, sizeof(value));
+    m_buffer_pos += 4;
     return value;
 }
 
 uint64_t BinaryReader::read_u64() {
+    ensure_available(8);
     uint64_t value;
-    m_stream.read(reinterpret_cast<char*>(&value), sizeof(value));
+    std::memcpy(&value, m_buffer.data() + m_buffer_pos, sizeof(value));
+    m_buffer_pos += 8;
     return value;
 }
 
 void BinaryReader::read_bytes(void* data, size_t size) {
-    m_stream.read(reinterpret_cast<char*>(data), size);
+    char* dest = reinterpret_cast<char*>(data);
+    while (size > 0) {
+        ensure_available(1);
+        size_t available = m_buffer_end - m_buffer_pos;
+        size_t to_copy = std::min(size, available);
+        std::memcpy(dest, m_buffer.data() + m_buffer_pos, to_copy);
+        m_buffer_pos += to_copy;
+        dest += to_copy;
+        size -= to_copy;
+    }
 }
 
 std::string BinaryReader::read_string() {

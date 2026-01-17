@@ -80,32 +80,27 @@ private:
 
 // Template implementation (must be in header)
 template<typename Callback>
-void ProjectionEngine::rebuild_all_streaming(Callback callback, size_t batch_size) const {
+void ProjectionEngine::rebuild_all_streaming(Callback callback, [[maybe_unused]] size_t batch_size) const {
     // Get all entities from the reference layer
     auto entities = m_log.get_all_entities();
 
-    // Process entities in batches to control memory usage
-    std::unordered_map<types::EntityId, Node, EntityIdHash> batch_nodes;
-    batch_nodes.reserve(batch_size);
-
-    size_t processed = 0;
+    // Process each entity directly - no batching needed since we're streaming
     for (const auto& entity : entities) {
-        // Build node and add to current batch
-        batch_nodes.emplace(entity, rebuild(entity));
+        // Build node inline and pass to callback immediately
+        Node node(entity);
 
-        // When batch is full, process all nodes and clear
-        if (batch_nodes.size() >= batch_size) {
-            for (const auto& [ent_id, node] : batch_nodes) {
-                callback(ent_id, node);
+        // Get atom references directly (no copy, just pointer)
+        const auto* refs = m_log.get_entity_atoms(entity);
+        if (refs) {
+            for (const auto& ref : *refs) {
+                const Atom* atom = m_log.get_atom(ref.atom_id);
+                if (atom) {
+                    node.apply(atom->atom_id(), atom->type_tag(), atom->value(), ref.lsn);
+                }
             }
-            batch_nodes.clear();
-            processed += batch_size;
         }
-    }
 
-    // Process remaining nodes in final batch
-    for (const auto& [ent_id, node] : batch_nodes) {
-        callback(ent_id, node);
+        callback(entity, node);
     }
 }
 

@@ -14,12 +14,13 @@
 namespace gtaf::types {
 
 namespace detail {
+    // FNV-1a constants
+    constexpr uint64_t FNV_OFFSET_BASIS = 14695981039346656037ULL;
+    constexpr uint64_t FNV_PRIME = 1099511628211ULL;
+
     // FNV-1a hash (64-bit) - simple but effective for demonstration
     // In production, replace with SHA-256
     inline uint64_t fnv1a_hash(const uint8_t* data, size_t len) {
-        constexpr uint64_t FNV_OFFSET_BASIS = 14695981039346656037ULL;
-        constexpr uint64_t FNV_PRIME = 1099511628211ULL;
-
         uint64_t hash = FNV_OFFSET_BASIS;
         for (size_t i = 0; i < len; ++i) {
             hash ^= static_cast<uint64_t>(data[i]);
@@ -28,7 +29,38 @@ namespace detail {
         return hash;
     }
 
-    // Hash accumulator for building composite hashes
+    // Streaming hash accumulator - NO ALLOCATIONS
+    // Computes hash incrementally without buffering
+    class StreamingHasher {
+    public:
+        StreamingHasher() : m_hash(FNV_OFFSET_BASIS) {}
+
+        void update(const void* data, size_t len) {
+            const auto* bytes = static_cast<const uint8_t*>(data);
+            for (size_t i = 0; i < len; ++i) {
+                m_hash ^= static_cast<uint64_t>(bytes[i]);
+                m_hash *= FNV_PRIME;
+            }
+        }
+
+        void update_string(const std::string& str) {
+            update(str.data(), str.size());
+        }
+
+        uint64_t finalize() const {
+            return m_hash;
+        }
+
+        // Reset for reuse
+        void reset() {
+            m_hash = FNV_OFFSET_BASIS;
+        }
+
+    private:
+        uint64_t m_hash;
+    };
+
+    // Legacy class for backwards compatibility
     class HashAccumulator {
     public:
         void update(const void* data, size_t len) {
@@ -56,12 +88,14 @@ namespace detail {
  * This creates a deterministic hash based on the type and value,
  * suitable for content-addressed storage and deduplication.
  *
+ * Uses streaming hash computation with ZERO heap allocations.
+ *
  * @param type_tag The semantic type of the atom (e.g., "user.name")
  * @param value The atom value to hash
  * @return 128-bit hash as AtomId
  */
 inline AtomId compute_content_hash(const std::string& type_tag, const AtomValue& value) {
-    detail::HashAccumulator hasher;
+    detail::StreamingHasher hasher;
 
     // Hash the type tag first
     hasher.update_string(type_tag);
@@ -112,12 +146,19 @@ inline AtomId compute_content_hash(const std::string& type_tag, const AtomValue&
     // Finalize to 64-bit hash, then extend to 128-bit
     uint64_t hash1 = hasher.finalize();
 
-    // Create second hash by rehashing with a salt
-    detail::HashAccumulator hasher2;
-    hasher2.update(&hash1, sizeof(hash1));
-    uint64_t salt = 0xDEADBEEFCAFEBABEULL;
-    hasher2.update(&salt, sizeof(salt));
-    uint64_t hash2 = hasher2.finalize();
+    // Create second hash by continuing to hash with a salt (no new hasher needed)
+    // This is faster than creating a new hasher object
+    uint64_t hash2 = hash1;
+    constexpr uint64_t salt = 0xDEADBEEFCAFEBABEULL;
+    // Mix hash1 with salt using FNV-1a continuation
+    hash2 ^= (salt & 0xFF); hash2 *= detail::FNV_PRIME;
+    hash2 ^= ((salt >> 8) & 0xFF); hash2 *= detail::FNV_PRIME;
+    hash2 ^= ((salt >> 16) & 0xFF); hash2 *= detail::FNV_PRIME;
+    hash2 ^= ((salt >> 24) & 0xFF); hash2 *= detail::FNV_PRIME;
+    hash2 ^= ((salt >> 32) & 0xFF); hash2 *= detail::FNV_PRIME;
+    hash2 ^= ((salt >> 40) & 0xFF); hash2 *= detail::FNV_PRIME;
+    hash2 ^= ((salt >> 48) & 0xFF); hash2 *= detail::FNV_PRIME;
+    hash2 ^= ((salt >> 56) & 0xFF); hash2 *= detail::FNV_PRIME;
 
     // Combine into 128-bit AtomId
     AtomId atom_id{};

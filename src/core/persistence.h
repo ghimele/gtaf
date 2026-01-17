@@ -44,6 +44,8 @@ private:
 
 /**
  * @brief Binary deserialization for GTAF data
+ *
+ * Uses a large read buffer to minimize syscalls and improve performance.
  */
 class BinaryReader {
 public:
@@ -68,7 +70,16 @@ public:
     bool eof() const { return m_stream.eof(); }
 
 private:
+    void refill_buffer();
+    void ensure_available(size_t bytes);
+
     std::ifstream m_stream;
+
+    // Buffered reading for performance
+    static constexpr size_t BUFFER_SIZE = 16 * 1024 * 1024;  // 16MB buffer
+    std::vector<char> m_buffer;
+    size_t m_buffer_pos = 0;
+    size_t m_buffer_end = 0;
 };
 
 } // namespace gtaf::core

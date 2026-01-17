@@ -44,12 +44,12 @@ int main() {
     }
 
     // Get entity references to check LSN ordering
-    auto user_refs = log.get_entity_atoms(user);
-    std::cout << "Entity has " << user_refs.size() << " atom references\n";
+    const auto* user_refs = log.get_entity_atoms(user);
+    std::cout << "Entity has " << (user_refs ? user_refs->size() : 0) << " atom references\n";
     std::cout << "LSNs are strictly increasing: ";
-    if (user_refs.size() >= 3 &&
-        user_refs[0].lsn.value < user_refs[1].lsn.value &&
-        user_refs[1].lsn.value < user_refs[2].lsn.value) {
+    if (user_refs && user_refs->size() >= 3 &&
+        (*user_refs)[0].lsn.value < (*user_refs)[1].lsn.value &&
+        (*user_refs)[1].lsn.value < (*user_refs)[2].lsn.value) {
         std::cout << "YES ✓\n\n";
     } else {
         std::cout << "NO\n\n";
@@ -69,13 +69,15 @@ int main() {
     std::cout << "The log preserves ALL versions:\n";
     std::cout << "Using entity reference index to retrieve history:\n";
     int version = 1;
-    for (const auto& ref : user_refs) {
-        const core::Atom* atom = log.get_atom(ref.atom_id);
-        if (atom && atom->type_tag() == "user.status") {
-            std::cout << "  Version " << version++ << ": '"
-                      << std::get<std::string>(atom->value())
-                      << "' (LSN: " << ref.lsn.value
-                      << ", Timestamp: " << atom->created_at() << ")\n";
+    if (user_refs) {
+        for (const auto& ref : *user_refs) {
+            const core::Atom* atom = log.get_atom(ref.atom_id);
+            if (atom && atom->type_tag() == "user.status") {
+                std::cout << "  Version " << version++ << ": '"
+                          << std::get<std::string>(atom->value())
+                          << "' (LSN: " << ref.lsn.value
+                          << ", Timestamp: " << atom->created_at() << ")\n";
+            }
         }
     }
 
@@ -114,8 +116,8 @@ int main() {
     std::cout << "Content atoms after: " << atoms_after << "\n";
     std::cout << "  (No new content atom created - 'active' value already exists)\n";
 
-    auto updated_refs = log.get_entity_atoms(user);
-    std::cout << "Entity references: " << updated_refs.size() << "\n";
+    const auto* updated_refs = log.get_entity_atoms(user);
+    std::cout << "Entity references: " << (updated_refs ? updated_refs->size() : 0) << "\n";
     std::cout << "  (New reference added for this entity's latest update)\n";
 
     std::cout << "\n=== Demo Complete ===\n";

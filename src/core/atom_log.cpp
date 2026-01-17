@@ -32,12 +32,12 @@ const std::vector<Atom>& AtomLog::all() const {
     return m_atoms;
 }
 
-std::vector<AtomReference> AtomLog::get_entity_atoms(types::EntityId entity) const {
+const std::vector<AtomReference>* AtomLog::get_entity_atoms(types::EntityId entity) const {
     auto it = m_entity_refs.find(entity);
     if (it == m_entity_refs.end()) {
-        return {};  // No atoms for this entity
+        return nullptr;  // No atoms for this entity
     }
-    return it->second;  // Return copy of references (already sorted by LSN)
+    return &it->second;  // Return pointer to avoid copy
 }
 
 const Atom* AtomLog::get_atom(types::AtomId atom_id) const {
@@ -63,7 +63,106 @@ AtomLog::Stats AtomLog::get_stats() const {
     stats.canonical_atoms = m_canonical_atom_count;
     stats.deduplicated_hits = m_dedup_hits;
     stats.unique_canonical_atoms = m_canonical_dedup_map.size();
+    stats.total_entities = m_entity_refs.size();
+
+    // Count total references across all entities
+    size_t total_refs = 0;
+    for (const auto& [entity, refs] : m_entity_refs) {
+        total_refs += refs.size();
+    }
+    stats.total_references = total_refs;
+
     return stats;
+}
+
+size_t AtomLog::append_batch(const std::vector<BatchAtom>& atoms) {
+    if (atoms.empty()) return 0;
+
+    // Get timestamp once for the entire batch
+    types::Timestamp batch_timestamp = get_current_timestamp();
+
+    // Phase 1: Pre-calculate how many atoms each entity will receive
+    // Use a local map to batch entity references before committing
+    std::unordered_map<types::EntityId, std::vector<AtomReference>, EntityIdHash> batch_entity_refs;
+    batch_entity_refs.reserve(atoms.size() / 8);  // Estimate unique entities
+
+    // Phase 2: Pre-reserve main storage
+    m_atoms.reserve(m_atoms.size() + atoms.size() / 2);
+
+    // Pre-reserve hash maps to avoid rehashing during batch
+    size_t estimated_new_atoms = atoms.size() / 2;
+    if (m_canonical_dedup_map.bucket_count() < m_canonical_dedup_map.size() + estimated_new_atoms) {
+        m_canonical_dedup_map.reserve(m_canonical_dedup_map.size() + estimated_new_atoms);
+        m_content_index.reserve(m_content_index.size() + estimated_new_atoms);
+        m_refcounts.reserve(m_refcounts.size() + estimated_new_atoms);
+    }
+
+    size_t stored_count = 0;
+
+    // Phase 3: Process atoms with minimal map operations
+    for (const auto& batch_atom : atoms) {
+        // Only support Canonical atoms in batch mode for now
+        if (batch_atom.classification != types::AtomType::Canonical) {
+            append(batch_atom.entity, batch_atom.tag, batch_atom.value, batch_atom.classification);
+            ++stored_count;
+            continue;
+        }
+
+        // Compute content-based hash
+        types::AtomId atom_id = types::compute_content_hash(batch_atom.tag, batch_atom.value);
+
+        // Use insert to do lookup + insert in ONE operation (critical optimization)
+        auto [it, inserted] = m_canonical_dedup_map.try_emplace(atom_id, m_atoms.size());
+
+        // Generate LSN
+        types::LogSequenceNumber lsn{++m_next_lsn};
+
+        // Batch entity references locally (much faster than direct map access)
+        batch_entity_refs[batch_atom.entity].push_back({atom_id, lsn});
+
+        if (inserted) {
+            // New atom - store it
+            m_atoms.emplace_back(
+                atom_id,
+                types::AtomType::Canonical,
+                batch_atom.tag,
+                batch_atom.value,
+                batch_timestamp
+            );
+            m_content_index.emplace(atom_id, it->second);
+            m_refcounts.emplace(atom_id, 1);
+            ++m_canonical_atom_count;
+            ++stored_count;
+        } else {
+            // Duplicate - just increment counters
+            ++m_dedup_hits;
+            ++m_refcounts[atom_id];
+        }
+    }
+
+    // Phase 4: Merge batch entity references into main map (bulk operation)
+    for (auto& [entity, refs] : batch_entity_refs) {
+        auto& main_refs = m_entity_refs[entity];
+        main_refs.reserve(main_refs.size() + refs.size());
+        main_refs.insert(main_refs.end(),
+                        std::make_move_iterator(refs.begin()),
+                        std::make_move_iterator(refs.end()));
+    }
+
+    return stored_count;
+}
+
+void AtomLog::reserve(size_t atom_count, size_t entity_count) {
+    m_atoms.reserve(atom_count);
+
+    // Pre-reserve all hash maps to avoid rehashing during bulk import
+    m_canonical_dedup_map.reserve(atom_count);
+    m_content_index.reserve(atom_count);
+    m_refcounts.reserve(atom_count);
+
+    if (entity_count > 0) {
+        m_entity_refs.reserve(entity_count);
+    }
 }
 
 Atom AtomLog::append_canonical(
@@ -438,6 +537,7 @@ bool AtomLog::save(const std::string& filepath) const {
 
 bool AtomLog::load(const std::string& filepath) {
     try {
+        auto t_start = std::chrono::high_resolution_clock::now();
         BinaryReader reader(filepath);
 
         // Read and verify header
@@ -470,8 +570,19 @@ bool AtomLog::load(const std::string& filepath) {
         m_next_atom_id = reader.read_u64();
         uint64_t atom_count = reader.read_u64();
 
-        // Read atoms (content only)
+        std::cerr << "[DEBUG] Loading " << atom_count << " atoms...\n";
+
+        // Pre-reserve all hash maps to avoid rehashing during load
         m_atoms.reserve(atom_count);
+        m_content_index.reserve(atom_count);
+        m_canonical_dedup_map.reserve(atom_count);
+
+        // Track canonical atoms during load (avoids rebuild_indexes scan)
+        m_canonical_atom_count = 0;
+
+        auto t_atoms_start = std::chrono::high_resolution_clock::now();
+
+        // Read atoms (content only)
         for (uint64_t i = 0; i < atom_count; ++i) {
             types::AtomId atom_id = reader.read_atom_id();
             types::AtomType type = static_cast<types::AtomType>(reader.read_u8());
@@ -480,38 +591,89 @@ bool AtomLog::load(const std::string& filepath) {
             types::Timestamp timestamp = reader.read_timestamp();
 
             // Reconstruct atom
-            Atom atom(atom_id, type, std::move(tag), std::move(value), timestamp);
-            m_atoms.push_back(std::move(atom));
-            m_content_index[atom_id] = i;
+            m_atoms.emplace_back(atom_id, type, std::move(tag), std::move(value), timestamp);
+
+            // Build indexes inline during load (faster than separate rebuild pass)
+            m_content_index.emplace(atom_id, i);
+            if (type == types::AtomType::Canonical) {
+                m_canonical_dedup_map.emplace(atom_id, i);
+                ++m_canonical_atom_count;
+            }
+
+            // Progress every 500k atoms
+            if ((i + 1) % 500000 == 0) {
+                auto now = std::chrono::high_resolution_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - t_atoms_start).count();
+                std::cerr << "[DEBUG]   " << (i + 1) << " atoms loaded in " << elapsed << "ms\n";
+            }
         }
+
+        auto t_atoms_end = std::chrono::high_resolution_clock::now();
+        auto atoms_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t_atoms_end - t_atoms_start).count();
+        std::cerr << "[DEBUG] Atoms loaded in " << atoms_ms << "ms\n";
 
         // Read entity reference layer
         uint64_t entity_count = reader.read_u64();
+        std::cerr << "[DEBUG] Loading " << entity_count << " entities...\n";
+        m_entity_refs.reserve(entity_count);
+
+        auto t_refs_start = std::chrono::high_resolution_clock::now();
+
+        size_t total_refs_loaded = 0;
+
+        // Temporary buffer for bulk reading references
+        // Each ref is 24 bytes: AtomId (16) + LSN (8)
+        std::vector<uint8_t> ref_buffer;
+
         for (uint64_t i = 0; i < entity_count; ++i) {
             types::EntityId entity = reader.read_entity_id();
             uint64_t ref_count = reader.read_u64();
 
-            std::vector<AtomReference> refs;
-            refs.reserve(ref_count);
-            for (uint64_t j = 0; j < ref_count; ++j) {
-                types::AtomId atom_id = reader.read_atom_id();
-                types::LogSequenceNumber lsn = reader.read_lsn();
-                refs.push_back({atom_id, lsn});
-            }
+            // Create vector directly in map
+            auto& refs = m_entity_refs[entity];
+            refs.resize(ref_count);
 
-            m_entity_refs[entity] = std::move(refs);
+            if (ref_count > 0) {
+                // Bulk read all reference data for this entity
+                size_t total_bytes = ref_count * 24;  // 16 + 8 bytes per ref
+                ref_buffer.resize(total_bytes);
+                reader.read_bytes(ref_buffer.data(), total_bytes);
+
+                // Parse the buffer into AtomReference structs
+                const uint8_t* ptr = ref_buffer.data();
+                for (uint64_t j = 0; j < ref_count; ++j) {
+                    std::memcpy(refs[j].atom_id.bytes.data(), ptr, 16);
+                    ptr += 16;
+                    std::memcpy(&refs[j].lsn.value, ptr, 8);
+                    ptr += 8;
+                }
+            }
+            total_refs_loaded += ref_count;
+
+            // Progress: first at 100, 1000, 10000, then every 100k
+            if ((i + 1) == 100 || (i + 1) == 1000 || (i + 1) == 10000 || (i + 1) % 100000 == 0) {
+                auto now = std::chrono::high_resolution_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - t_refs_start).count();
+                std::cerr << "[DEBUG]   " << (i + 1) << " entities (" << total_refs_loaded << " refs) in " << elapsed << "ms\n";
+            }
         }
+
+        auto t_refs_end = std::chrono::high_resolution_clock::now();
+        auto refs_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t_refs_end - t_refs_start).count();
+        std::cerr << "[DEBUG] Entity refs loaded in " << refs_ms << "ms\n";
 
         // Read refcounts
         uint64_t refcount_size = reader.read_u64();
+        m_refcounts.reserve(refcount_size);
         for (uint64_t i = 0; i < refcount_size; ++i) {
             types::AtomId atom_id = reader.read_atom_id();
             uint32_t count = reader.read_u32();
-            m_refcounts[atom_id] = count;
+            m_refcounts.emplace(atom_id, count);
         }
 
-        // Rebuild indexes and derived structures
-        rebuild_indexes();
+        // Reset session counters (dedup_hits is only meaningful during append)
+        m_dedup_hits = 0;
+        m_snapshot_count = 0;
 
         return true;
     } catch (const std::exception& e) {

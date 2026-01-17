@@ -82,6 +82,27 @@ add_executable(gtaf_query_workrequest_indexed
 
 target_link_libraries(gtaf_query_workrequest_indexed PRIVATE gtaf_lib)
 
+# ------------------------------------------------------------
+# TPC-H Benchmark Tools
+# ------------------------------------------------------------
+add_executable(gtaf_tpch_import
+  test/tpch/tpch_import.cpp
+)
+
+target_link_libraries(gtaf_tpch_import PRIVATE gtaf_lib)
+
+add_executable(gtaf_tpch_import_fast
+  test/tpch/tpch_import_fast.cpp
+)
+
+target_link_libraries(gtaf_tpch_import_fast PRIVATE gtaf_lib)
+
+add_executable(gtaf_tpch_query
+  test/tpch/tpch_query.cpp
+)
+
+target_link_libraries(gtaf_tpch_query PRIVATE gtaf_lib)
+
 # Embed version in the executable (Linux + Windows)
 target_compile_definitions(gtaf_example PRIVATE
   GTAF_VERSION="${GTAF_FULL_VERSION}"

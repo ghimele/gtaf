@@ -2,7 +2,9 @@
 
 #include "../types/types.h"
 #include "projection_engine.h"
+#include "atom_log.h"
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <string>
 #include <functional>
@@ -23,12 +25,28 @@ public:
     explicit QueryIndex(const ProjectionEngine& projector);
 
     /**
+     * @brief Construct a query index from an atom log (direct access, faster)
+     */
+    explicit QueryIndex(const AtomLog& log);
+
+    /**
      * @brief Build an index for a specific property tag
      *
      * @param tag The property tag to index (e.g., "workrequest.description")
      * @return Number of entities indexed
      */
     size_t build_index(const std::string& tag);
+
+    /**
+     * @brief Build indexes for multiple property tags in a single pass
+     *
+     * This is much more efficient than calling build_index() multiple times,
+     * as it only rebuilds each node once instead of once per tag.
+     *
+     * @param tags Vector of property tags to index
+     * @return Total number of index entries created
+     */
+    size_t build_indexes(const std::vector<std::string>& tags);
 
     /**
      * @brief Get all entity IDs where a string field contains a substring (case-insensitive)
@@ -85,7 +103,19 @@ public:
     IndexStats get_stats() const;
 
 private:
-    const ProjectionEngine& m_projector;
+    /**
+     * @brief Build indexes by directly scanning atom log (bypasses Node reconstruction)
+     *
+     * Much faster than going through ProjectionEngine because:
+     * - No Node object allocation
+     * - No string-keyed hash map per entity
+     * - No history tracking
+     * - Only scans for requested tags
+     */
+    size_t build_indexes_direct(const std::vector<std::string>& tags);
+
+    const ProjectionEngine* m_projector = nullptr;
+    const AtomLog* m_log = nullptr;
 
     // Index: tag -> (entity_id -> string_value)
     std::unordered_map<std::string, std::unordered_map<types::EntityId, std::string, EntityIdHash>> m_string_indexes;

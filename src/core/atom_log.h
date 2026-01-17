@@ -14,10 +14,12 @@ namespace gtaf::core {
 // Must be defined here (not forward declared) because it's used as a template parameter
 struct AtomIdHash {
     std::size_t operator()(const types::AtomId& id) const noexcept {
-        // Use first 8 bytes as hash
-        uint64_t hash;
-        std::memcpy(&hash, id.bytes.data(), sizeof(hash));
-        return static_cast<std::size_t>(hash);
+        // Combine both 64-bit halves for better hash distribution
+        uint64_t h1, h2;
+        std::memcpy(&h1, id.bytes.data(), 8);
+        std::memcpy(&h2, id.bytes.data() + 8, 8);
+        // Mix the two halves using XOR and a prime multiplier (golden ratio)
+        return static_cast<std::size_t>(h1 ^ (h2 * 0x9e3779b97f4a7c15ULL));
     }
 };
 
@@ -40,12 +42,15 @@ struct TemporalKeyHash {
     }
 };
 
-// Hash function for EntityId
+// Hash function for EntityId - uses all 16 bytes for better distribution
 struct EntityIdHash {
     std::size_t operator()(const types::EntityId& id) const noexcept {
-        uint64_t hash;
-        std::memcpy(&hash, id.bytes.data(), sizeof(hash));
-        return static_cast<std::size_t>(hash);
+        // Combine both 64-bit halves for better hash distribution
+        uint64_t h1, h2;
+        std::memcpy(&h1, id.bytes.data(), 8);
+        std::memcpy(&h2, id.bytes.data() + 8, 8);
+        // Mix the two halves using XOR and a prime multiplier (golden ratio)
+        return static_cast<std::size_t>(h1 ^ (h2 * 0x9e3779b97f4a7c15ULL));
     }
 };
 
@@ -85,6 +90,39 @@ public:
     );
 
     /**
+     * @brief Batch data for efficient bulk imports
+     */
+    struct BatchAtom {
+        types::EntityId entity;
+        std::string tag;
+        types::AtomValue value;
+        types::AtomType classification = types::AtomType::Canonical;
+    };
+
+    /**
+     * @brief Append multiple atoms in a single batch operation
+     *
+     * This is significantly faster than calling append() repeatedly because:
+     * - Pre-allocates storage for all atoms
+     * - Reduces hash table rehashing
+     * - Minimizes timestamp syscalls
+     *
+     * @param atoms Vector of atoms to append
+     * @return Number of atoms actually stored (may be less due to deduplication)
+     */
+    size_t append_batch(const std::vector<BatchAtom>& atoms);
+
+    /**
+     * @brief Reserve capacity for expected number of atoms
+     *
+     * Call before bulk imports to avoid repeated reallocations.
+     *
+     * @param atom_count Expected number of atoms
+     * @param entity_count Expected number of unique entities
+     */
+    void reserve(size_t atom_count, size_t entity_count = 0);
+
+    /**
      * @brief Get all atoms in the log
      */
     const std::vector<Atom>& all() const;
@@ -95,9 +133,9 @@ public:
      * Returns references in chronological order (sorted by LSN).
      *
      * @param entity The entity whose atoms to retrieve
-     * @return Vector of AtomReference (AtomId + LSN pairs)
+     * @return Pointer to vector of AtomReference, or nullptr if entity not found
      */
-    std::vector<AtomReference> get_entity_atoms(types::EntityId entity) const;
+    const std::vector<AtomReference>* get_entity_atoms(types::EntityId entity) const;
 
     /**
      * @brief Get an atom by its AtomId
@@ -118,10 +156,12 @@ public:
      * @brief Deduplication and storage statistics
      */
     struct Stats {
-        size_t total_atoms = 0;
-        size_t canonical_atoms = 0;
-        size_t deduplicated_hits = 0;
-        size_t unique_canonical_atoms = 0;
+        size_t total_atoms = 0;           // Total atoms stored in log
+        size_t canonical_atoms = 0;       // Canonical atoms stored
+        size_t deduplicated_hits = 0;     // Dedup hits during append (session only)
+        size_t unique_canonical_atoms = 0; // Unique canonical atoms
+        size_t total_references = 0;      // Total entity->atom references
+        size_t total_entities = 0;        // Total unique entities
     };
 
     /**

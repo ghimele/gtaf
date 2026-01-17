@@ -27,19 +27,22 @@ TEST(AtomLog, CanonicalDeduplication) {
     ASSERT_EQ(atom1.atom_id(), atom2.atom_id());
 
     // But both entities should have references
-    auto refs1 = log.get_entity_atoms(entity1);
-    auto refs2 = log.get_entity_atoms(entity2);
-    ASSERT_EQ(refs1.size(), 1);
-    ASSERT_EQ(refs2.size(), 1);
-    ASSERT_EQ(refs1[0].atom_id, refs2[0].atom_id);  // Same atom
+    const auto* refs1 = log.get_entity_atoms(entity1);
+    const auto* refs2 = log.get_entity_atoms(entity2);
+    ASSERT_TRUE(refs1 != nullptr);
+    ASSERT_TRUE(refs2 != nullptr);
+    ASSERT_EQ(refs1->size(), 1);
+    ASSERT_EQ(refs2->size(), 1);
+    ASSERT_EQ((*refs1)[0].atom_id, (*refs2)[0].atom_id);  // Same atom
 
     // Different value should create different atom
     auto atom3 = log.append(entity1, "status", std::string("inactive"), types::AtomType::Canonical);
     ASSERT_NE(atom1.atom_id(), atom3.atom_id());
 
     // Verify stats - now entity1 has 2 references
-    auto refs1_updated = log.get_entity_atoms(entity1);
-    ASSERT_EQ(refs1_updated.size(), 2);
+    const auto* refs1_updated = log.get_entity_atoms(entity1);
+    ASSERT_TRUE(refs1_updated != nullptr);
+    ASSERT_EQ(refs1_updated->size(), 2);
 
     auto stats = log.get_stats();
     // Total content atoms is 2 (one for "active", one for "inactive")
@@ -154,12 +157,13 @@ TEST(AtomLog, LsnMonotonicity) {
     log.append(entity, "value", static_cast<int64_t>(3), types::AtomType::Canonical);
 
     // Get entity references and verify LSNs are strictly increasing
-    auto refs = log.get_entity_atoms(entity);
-    ASSERT_EQ(refs.size(), 3);
+    const auto* refs = log.get_entity_atoms(entity);
+    ASSERT_TRUE(refs != nullptr);
+    ASSERT_EQ(refs->size(), 3);
 
     // LSNs should be strictly increasing in the reference list
-    ASSERT_TRUE(refs[0].lsn.value < refs[1].lsn.value);
-    ASSERT_TRUE(refs[1].lsn.value < refs[2].lsn.value);
+    ASSERT_TRUE((*refs)[0].lsn.value < (*refs)[1].lsn.value);
+    ASSERT_TRUE((*refs)[1].lsn.value < (*refs)[2].lsn.value);
 }
 
 TEST(AtomLog, TimestampMonotonicity) {

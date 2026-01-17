@@ -1,35 +1,151 @@
 #include "query_index.h"
 #include <algorithm>
 #include <cctype>
+#include <iostream>
 
 namespace gtaf::core {
 
 QueryIndex::QueryIndex(const ProjectionEngine& projector)
-    : m_projector(projector) {}
+    : m_projector(&projector), m_log(nullptr) {}
 
-size_t QueryIndex::build_index(const std::string& tag) {
+QueryIndex::QueryIndex(const AtomLog& log)
+    : m_projector(nullptr), m_log(&log) {}
+
+size_t QueryIndex::build_indexes_direct(const std::vector<std::string>& tags) {
+    if (!m_log || tags.empty()) {
+        return 0;
+    }
+
+    const size_t num_tags = tags.size();
+
+    // Create tag -> index mapping for O(1) lookup
+    std::unordered_map<std::string, size_t> tag_to_index;
+    tag_to_index.reserve(num_tags);
+    for (size_t i = 0; i < num_tags; ++i) {
+        tag_to_index[tags[i]] = i;
+    }
+
     // Get all entities
-    auto entities = m_projector.get_all_entities();
+    auto entities = m_log->get_all_entities();
 
-    // Create index for this tag
-    auto& index = m_string_indexes[tag];
-    index.clear();
-    index.reserve(entities.size());
+    // Pre-create and reserve indexes for all requested tags
+    for (const auto& tag : tags) {
+        auto& index = m_string_indexes[tag];
+        index.clear();
+        index.reserve(entities.size());
+    }
 
-    size_t indexed_count = 0;
+    // Track latest value per tag using flat arrays (faster than hash map per entity)
+    struct LatestValue {
+        std::string value;
+        uint64_t lsn = 0;
+        bool has_value = false;
+    };
 
-    // Iterate through entities and extract the property value
+    // Reuse these vectors across entities to avoid repeated allocations
+    std::vector<LatestValue> latest_values(num_tags);
+
+    size_t total_indexed = 0;
+    size_t entities_processed = 0;
+
+    // Process each entity directly
     for (const auto& entity : entities) {
-        Node node = m_projector.rebuild(entity);
-        auto value = node.get(tag);
+        // Reset latest values for this entity
+        for (size_t i = 0; i < num_tags; ++i) {
+            latest_values[i].has_value = false;
+            latest_values[i].lsn = 0;
+        }
 
-        if (value && std::holds_alternative<std::string>(*value)) {
-            index[entity] = std::get<std::string>(*value);
-            indexed_count++;
+        // Get atom references for this entity
+        const auto* refs = m_log->get_entity_atoms(entity);
+        if (!refs) continue;
+
+        // Scan atoms and track latest value per tag
+        for (const auto& ref : *refs) {
+            const Atom* atom = m_log->get_atom(ref.atom_id);
+            if (!atom) continue;
+
+            const std::string& type_tag = atom->type_tag();
+
+            // Only process tags we're interested in
+            auto it = tag_to_index.find(type_tag);
+            if (it == tag_to_index.end()) continue;
+
+            size_t idx = it->second;
+
+            // Check if this is newer than what we have
+            if (!latest_values[idx].has_value || ref.lsn.value > latest_values[idx].lsn) {
+                // Extract string value
+                const auto& value = atom->value();
+                if (std::holds_alternative<std::string>(value)) {
+                    latest_values[idx].value = std::get<std::string>(value);
+                    latest_values[idx].lsn = ref.lsn.value;
+                    latest_values[idx].has_value = true;
+                }
+            }
+        }
+
+        // Store results in indexes
+        for (size_t i = 0; i < num_tags; ++i) {
+            if (latest_values[i].has_value) {
+                m_string_indexes[tags[i]][entity] = std::move(latest_values[i].value);
+                total_indexed++;
+            }
+        }
+
+        entities_processed++;
+        if (entities_processed % 100000 == 0) {
+            std::cerr << "[DEBUG] Index: processed " << entities_processed << " entities..." << std::endl;
         }
     }
 
-    return indexed_count;
+    return total_indexed;
+}
+
+size_t QueryIndex::build_index(const std::string& tag) {
+    // Use the multi-tag version for consistency
+    return build_indexes({tag});
+}
+
+size_t QueryIndex::build_indexes(const std::vector<std::string>& tags) {
+    if (tags.empty()) {
+        return 0;
+    }
+
+    // Use direct log access if available (much faster)
+    if (m_log) {
+        return build_indexes_direct(tags);
+    }
+
+    // Fall back to ProjectionEngine approach
+    if (!m_projector) {
+        return 0;
+    }
+
+    // Get all entities
+    auto entities = m_projector->get_all_entities();
+
+    // Pre-create and reserve indexes for all requested tags
+    for (const auto& tag : tags) {
+        auto& index = m_string_indexes[tag];
+        index.clear();
+        index.reserve(entities.size());
+    }
+
+    size_t total_indexed = 0;
+
+    // Use streaming to rebuild nodes once and extract all tag values
+    m_projector->rebuild_all_streaming([&](const types::EntityId& entity, const Node& node) {
+        for (const auto& tag : tags) {
+            auto value = node.get(tag);
+            if (value && std::holds_alternative<std::string>(*value)) {
+                m_string_indexes[tag][entity] = std::get<std::string>(*value);
+                total_indexed++;
+            }
+        }
+    });
+
+    return total_indexed;
 }
 
 std::vector<types::EntityId> QueryIndex::find_contains(
