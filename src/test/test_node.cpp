@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../core/atom_log.h"
+#include "../core/atom_store.h"
 #include "../core/projection_engine.h"
 #include <algorithm>
 
@@ -15,13 +15,13 @@ types::EntityId make_entity_node(uint8_t id) {
 }
 
 TEST(Node, BasicProjection) {
-    core::AtomLog log;
+    core::AtomStore store;
     auto entity = make_entity_node(1);
 
-    log.append(entity, "name", std::string("Alice"), types::AtomType::Canonical);
-    log.append(entity, "age", static_cast<int64_t>(30), types::AtomType::Canonical);
+    store.append(entity, "name", std::string("Alice"), types::AtomType::Canonical);
+    store.append(entity, "age", static_cast<int64_t>(30), types::AtomType::Canonical);
 
-    core::ProjectionEngine projector(log);
+    core::ProjectionEngine projector(store);
     auto node = projector.rebuild(entity);
 
     // Verify values are projected
@@ -37,14 +37,14 @@ TEST(Node, BasicProjection) {
 }
 
 TEST(Node, LatestValueWins) {
-    core::AtomLog log;
+    core::AtomStore store;
     auto entity = make_entity_node(1);
 
-    log.append(entity, "status", std::string("active"), types::AtomType::Canonical);
-    log.append(entity, "status", std::string("inactive"), types::AtomType::Canonical);
-    log.append(entity, "status", std::string("suspended"), types::AtomType::Canonical);
+    store.append(entity, "status", std::string("active"), types::AtomType::Canonical);
+    store.append(entity, "status", std::string("inactive"), types::AtomType::Canonical);
+    store.append(entity, "status", std::string("suspended"), types::AtomType::Canonical);
 
-    core::ProjectionEngine projector(log);
+    core::ProjectionEngine projector(store);
     auto node = projector.rebuild(entity);
 
     auto status = node.get("status");
@@ -53,14 +53,14 @@ TEST(Node, LatestValueWins) {
 }
 
 TEST(Node, GetAllProperties) {
-    core::AtomLog log;
+    core::AtomStore store;
     auto entity = make_entity_node(1);
 
-    log.append(entity, "name", std::string("Bob"), types::AtomType::Canonical);
-    log.append(entity, "age", static_cast<int64_t>(25), types::AtomType::Canonical);
-    log.append(entity, "active", true, types::AtomType::Canonical);
+    store.append(entity, "name", std::string("Bob"), types::AtomType::Canonical);
+    store.append(entity, "age", static_cast<int64_t>(25), types::AtomType::Canonical);
+    store.append(entity, "active", true, types::AtomType::Canonical);
 
-    core::ProjectionEngine projector(log);
+    core::ProjectionEngine projector(store);
     auto node = projector.rebuild(entity);
 
     auto all = node.get_all();
@@ -71,14 +71,14 @@ TEST(Node, GetAllProperties) {
 }
 
 TEST(Node, MultipleEntities) {
-    core::AtomLog log;
+    core::AtomStore store;
     auto entity1 = make_entity_node(1);
     auto entity2 = make_entity_node(2);
 
-    log.append(entity1, "name", std::string("Alice"), types::AtomType::Canonical);
-    log.append(entity2, "name", std::string("Bob"), types::AtomType::Canonical);
+    store.append(entity1, "name", std::string("Alice"), types::AtomType::Canonical);
+    store.append(entity2, "name", std::string("Bob"), types::AtomType::Canonical);
 
-    core::ProjectionEngine projector(log);
+    core::ProjectionEngine projector(store);
     auto node1 = projector.rebuild(entity1);
     auto node2 = projector.rebuild(entity2);
 
@@ -92,14 +92,14 @@ TEST(Node, MultipleEntities) {
 }
 
 TEST(Node, History) {
-    core::AtomLog log;
+    core::AtomStore store;
     auto entity = make_entity_node(1);
 
-    log.append(entity, "value", static_cast<int64_t>(1), types::AtomType::Canonical);
-    log.append(entity, "value", static_cast<int64_t>(2), types::AtomType::Canonical);
-    log.append(entity, "value", static_cast<int64_t>(3), types::AtomType::Canonical);
+    store.append(entity, "value", static_cast<int64_t>(1), types::AtomType::Canonical);
+    store.append(entity, "value", static_cast<int64_t>(2), types::AtomType::Canonical);
+    store.append(entity, "value", static_cast<int64_t>(3), types::AtomType::Canonical);
 
-    core::ProjectionEngine projector(log);
+    core::ProjectionEngine projector(store);
     auto node = projector.rebuild(entity);
 
     const auto& history = node.history();
@@ -111,13 +111,13 @@ TEST(Node, History) {
 }
 
 TEST(Node, EmptyEntity) {
-    core::AtomLog log;
+    core::AtomStore store;
     auto entity = make_entity_node(1);
 
     // Append to different entity
-    log.append(make_entity_node(2), "name", std::string("Alice"), types::AtomType::Canonical);
+    store.append(make_entity_node(2), "name", std::string("Alice"), types::AtomType::Canonical);
 
-    core::ProjectionEngine projector(log);
+    core::ProjectionEngine projector(store);
     auto node = projector.rebuild(entity);
 
     // Should be empty
@@ -126,14 +126,14 @@ TEST(Node, EmptyEntity) {
 }
 
 TEST(Node, MutablePropertyUpdate) {
-    core::AtomLog log;
+    core::AtomStore store;
     auto entity = make_entity_node(1);
 
-    log.append(entity, "counter", static_cast<int64_t>(1), types::AtomType::Mutable);
-    log.append(entity, "counter", static_cast<int64_t>(5), types::AtomType::Mutable);
-    log.append(entity, "counter", static_cast<int64_t>(10), types::AtomType::Mutable);
+    store.append(entity, "counter", static_cast<int64_t>(1), types::AtomType::Mutable);
+    store.append(entity, "counter", static_cast<int64_t>(5), types::AtomType::Mutable);
+    store.append(entity, "counter", static_cast<int64_t>(10), types::AtomType::Mutable);
 
-    core::ProjectionEngine projector(log);
+    core::ProjectionEngine projector(store);
     auto node = projector.rebuild(entity);
 
     auto counter = node.get("counter");
@@ -142,12 +142,12 @@ TEST(Node, MutablePropertyUpdate) {
 }
 
 TEST(Node, NonExistentProperty) {
-    core::AtomLog log;
+    core::AtomStore store;
     auto entity = make_entity_node(1);
 
-    log.append(entity, "name", std::string("Alice"), types::AtomType::Canonical);
+    store.append(entity, "name", std::string("Alice"), types::AtomType::Canonical);
 
-    core::ProjectionEngine projector(log);
+    core::ProjectionEngine projector(store);
     auto node = projector.rebuild(entity);
 
     auto missing = node.get("nonexistent");
@@ -155,13 +155,13 @@ TEST(Node, NonExistentProperty) {
 }
 
 TEST(Node, LatestAtom) {
-    core::AtomLog log;
+    core::AtomStore store;
     auto entity = make_entity_node(1);
 
-    auto atom1 = log.append(entity, "value", static_cast<int64_t>(1), types::AtomType::Canonical);
-    auto atom2 = log.append(entity, "value", static_cast<int64_t>(2), types::AtomType::Canonical);
+    auto atom1 = store.append(entity, "value", static_cast<int64_t>(1), types::AtomType::Canonical);
+    auto atom2 = store.append(entity, "value", static_cast<int64_t>(2), types::AtomType::Canonical);
 
-    core::ProjectionEngine projector(log);
+    core::ProjectionEngine projector(store);
     auto node = projector.rebuild(entity);
 
     auto latest = node.latest_atom("value");
@@ -170,17 +170,17 @@ TEST(Node, LatestAtom) {
 }
 
 TEST(ProjectionEngine, GetAllEntities) {
-    core::AtomLog log;
+    core::AtomStore store;
     auto entity1 = make_entity_node(1);
     auto entity2 = make_entity_node(2);
     auto entity3 = make_entity_node(3);
 
-    log.append(entity1, "name", std::string("Alice"), types::AtomType::Canonical);
-    log.append(entity2, "name", std::string("Bob"), types::AtomType::Canonical);
-    log.append(entity3, "name", std::string("Charlie"), types::AtomType::Canonical);
-    log.append(entity1, "age", static_cast<int64_t>(30), types::AtomType::Canonical);
+    store.append(entity1, "name", std::string("Alice"), types::AtomType::Canonical);
+    store.append(entity2, "name", std::string("Bob"), types::AtomType::Canonical);
+    store.append(entity3, "name", std::string("Charlie"), types::AtomType::Canonical);
+    store.append(entity1, "age", static_cast<int64_t>(30), types::AtomType::Canonical);
 
-    core::ProjectionEngine projector(log);
+    core::ProjectionEngine projector(store);
     auto entities = projector.get_all_entities();
 
     // Should have 3 unique entities
@@ -188,16 +188,16 @@ TEST(ProjectionEngine, GetAllEntities) {
 }
 
 TEST(ProjectionEngine, RebuildAll) {
-    core::AtomLog log;
+    core::AtomStore store;
     auto entity1 = make_entity_node(1);
     auto entity2 = make_entity_node(2);
 
-    log.append(entity1, "name", std::string("Alice"), types::AtomType::Canonical);
-    log.append(entity1, "age", static_cast<int64_t>(30), types::AtomType::Canonical);
-    log.append(entity2, "name", std::string("Bob"), types::AtomType::Canonical);
-    log.append(entity2, "age", static_cast<int64_t>(25), types::AtomType::Canonical);
+    store.append(entity1, "name", std::string("Alice"), types::AtomType::Canonical);
+    store.append(entity1, "age", static_cast<int64_t>(30), types::AtomType::Canonical);
+    store.append(entity2, "name", std::string("Bob"), types::AtomType::Canonical);
+    store.append(entity2, "age", static_cast<int64_t>(25), types::AtomType::Canonical);
 
-    core::ProjectionEngine projector(log);
+    core::ProjectionEngine projector(store);
     auto all_nodes = projector.rebuild_all();
 
     // Should have 2 nodes
@@ -219,19 +219,19 @@ TEST(ProjectionEngine, RebuildAll) {
 }
 
 TEST(ProjectionEngine, RebuildAllEfficiency) {
-    core::AtomLog log;
+    core::AtomStore store;
 
     // Create 50 entities with unique properties
     for (int i = 1; i <= 50; ++i) {
         auto entity = make_entity_node(static_cast<uint8_t>(i));
         for (int j = 0; j < 10; ++j) {
             // Use entity-specific values to avoid deduplication affecting entity count
-            log.append(entity, "prop" + std::to_string(j),
+            store.append(entity, "prop" + std::to_string(j),
                       static_cast<int64_t>(i * 1000 + j), types::AtomType::Temporal);
         }
     }
 
-    core::ProjectionEngine projector(log);
+    core::ProjectionEngine projector(store);
     auto all_nodes = projector.rebuild_all();
 
     // Should have 50 nodes

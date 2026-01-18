@@ -31,11 +31,11 @@ When multiple entities store the same canonical value, only the first entity mai
 
 ```cpp
 // Line 34: Create atom for user1
-auto atom1 = log.append(user1, "user.status", "active", Canonical);
+auto atom1 = store.append(user1, "user.status", "active", Canonical);
 // → Creates atom with entity_id = user1, AtomId = hash("user.status", "active")
 
 // Line 39: Same value for user2
-auto atom2 = log.append(user2, "user.status", "active", Canonical);
+auto atom2 = store.append(user2, "user.status", "active", Canonical);
 // → Returns existing atom1 (entity_id = user1)
 // → BUG: No association created for user2!
 
@@ -88,7 +88,7 @@ private:
 **File:** `src/core/atom_log.h:82-85`
 
 ```cpp
-class AtomLog {
+class AtomStore {
 private:
     std::vector<core::Atom> m_atoms;                              // All atoms
     std::unordered_map<types::AtomId, size_t> m_canonical_dedup_map;  // Hash → index
@@ -340,12 +340,12 @@ private:
 
 **Rationale:** Atoms are now pure content objects with no entity metadata.
 
-#### Enhanced AtomLog Class
+#### Enhanced AtomStore Class
 
 **File:** `src/core/atom_log.h`
 
 ```cpp
-class AtomLog {
+class AtomStore {
 private:
     // ===== CONTENT LAYER (Deduplicated) =====
     std::vector<core::Atom> m_atoms;  // Pure content, no entity info
@@ -386,7 +386,7 @@ public:
 ### Algorithm: Append with Separate Reference Tracking
 
 ```cpp
-Atom AtomLog::append(EntityId entity, const string& type_tag,
+Atom AtomStore::append(EntityId entity, const string& type_tag,
                      const AtomValue& value, AtomType atom_type) {
     // 1. Generate content-based AtomId
     AtomId atom_id = generate_atom_id(type_tag, value, atom_type);
@@ -433,7 +433,7 @@ Node ProjectionEngine::rebuild(EntityId entity) const {
 
     // Apply atoms in order
     for (const auto& ref : sorted_refs) {
-        const Atom& atom = m_log.get_atom(ref.atom_id);
+        const Atom& atom = m_store.get_atom(ref.atom_id);
         node.apply(atom.atom_id(), atom.type_tag(), atom.value(), ref.lsn);
     }
 
@@ -447,7 +447,7 @@ Node ProjectionEngine::rebuild(EntityId entity) const {
 # Initial state: Empty log
 
 # 1. Append atom for user1
-log.append(user1, "user.status", "active", Canonical)
+store.append(user1, "user.status", "active", Canonical)
 
 Content Layer:
   m_atoms[0] = Atom(AtomId=0xABC, tag="user.status", value="active")
@@ -458,7 +458,7 @@ Reference Layer:
   m_refcounts[0xABC] = 1
 
 # 2. Append SAME value for user2
-log.append(user2, "user.status", "active", Canonical)
+store.append(user2, "user.status", "active", Canonical)
 
 Content Layer: (unchanged - content exists)
   m_atoms[0] = Atom(AtomId=0xABC, tag="user.status", value="active")
@@ -513,7 +513,7 @@ Result: user2_node contains 1 atom ✓ (BUG FIXED!)
 - Increases memory overhead: ~16 bytes per entity-atom reference
 - Enables O(1) lookup of atoms per entity (vs O(n) linear scan)
 
-#### 1.3 Update AtomLog::append()
+#### 1.3 Update AtomStore::append()
 
 **File:** `src/core/atom_log.cpp`
 
@@ -621,7 +621,7 @@ for each entity:
 **File:** `src/core/atom_log.cpp`
 
 ```cpp
-void AtomLog::remove_entity(types::EntityId entity) {
+void AtomStore::remove_entity(types::EntityId entity) {
     auto it = m_entity_refs.find(entity);
     if (it == m_entity_refs.end()) return;
 
@@ -640,7 +640,7 @@ void AtomLog::remove_entity(types::EntityId entity) {
 **File:** `src/core/atom_log.cpp`
 
 ```cpp
-size_t AtomLog::collect_garbage() {
+size_t AtomStore::collect_garbage() {
     size_t removed = 0;
     std::vector<types::AtomId> to_remove;
 

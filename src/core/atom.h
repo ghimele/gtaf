@@ -26,7 +26,7 @@ public:
 
     // ---- Identity ----
     [[nodiscard]] types::AtomId atom_id() const noexcept { return m_atom_id; }
-    // entity_id() removed - use AtomLog reference index instead
+    // entity_id() removed - use AtomStore reference index instead
 
     // ---- Classification ----
     [[nodiscard]] types::AtomType classification() const noexcept { return m_classification; }
@@ -36,7 +36,7 @@ public:
     [[nodiscard]] const types::AtomValue& value() const noexcept { return m_value; }
 
     // ---- Append-only metadata ----
-    // Note: LSN is now tracked per-entity in AtomLog reference layer
+    // Note: LSN is now tracked per-entity in AtomStore reference layer
     [[nodiscard]] types::Timestamp created_at() const noexcept { return m_created_at; }
     [[nodiscard]] types::TransactionId tx_id() const noexcept { return m_tx_id; }
     [[nodiscard]] uint32_t flags() const noexcept { return m_flags; }
@@ -57,7 +57,7 @@ public:
 private:
     // ---- Identity ----
     types::AtomId   m_atom_id;
-    // entity_id removed - tracked in AtomLog reference layer
+    // entity_id removed - tracked in AtomStore reference layer
 
     // ---- Classification ----
     types::AtomType m_classification;
@@ -67,7 +67,7 @@ private:
     types::AtomValue m_value;
 
     // ---- Append-only metadata ----
-    // lsn removed - tracked per-entity in AtomLog reference layer
+    // lsn removed - tracked per-entity in AtomStore reference layer
     types::Timestamp         m_created_at;
     types::TransactionId     m_tx_id;
     uint32_t                 m_flags;

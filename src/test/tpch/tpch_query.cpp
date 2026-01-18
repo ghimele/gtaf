@@ -1,4 +1,4 @@
-#include "../../core/atom_log.h"
+#include "../../core/atom_store.h"
 #include "../../core/projection_engine.h"
 #include "../../core/query_index.h"
 #include "../../types/hash_utils.h"
@@ -55,10 +55,10 @@ int main(int argc, char* argv[]) {
 
     // Load data
     std::cout << "Loading TPC-H data from: " << data_file << "\n";
-    core::AtomLog log;
+    core::AtomStore store;
 
     auto start = std::chrono::high_resolution_clock::now();
-    if (!log.load(data_file)) {
+    if (!store.load(data_file)) {
         std::cerr << "Error: Failed to load data file\n";
         return 1;
     }
@@ -67,12 +67,12 @@ int main(int argc, char* argv[]) {
 
     size_t mem_after_load = get_memory_usage_kb();
 
-    std::cout << "  ✓ Loaded " << log.all().size() << " atoms in " << load_time.count() << "ms\n";
+    std::cout << "  ✓ Loaded " << store.all().size() << " atoms in " << load_time.count() << "ms\n";
     std::cout << "  Memory after load: " << format_memory(mem_after_load)
               << " (+" << format_memory(mem_after_load - mem_start) << ")\n\n";
 
     // Show statistics
-    auto stats = log.get_stats();
+    auto stats = store.get_stats();
     std::cout << "=== Dataset Statistics ===\n";
     std::cout << "Total unique atoms: " << stats.total_atoms << "\n";
     std::cout << "Total entities: " << stats.total_entities << "\n";
@@ -89,9 +89,9 @@ int main(int argc, char* argv[]) {
 
     // Create projection engine and index
     std::cout << "Creating ProjectionEngine and QueryIndex...\n";
-    core::ProjectionEngine projector(log);
-    // Use direct AtomLog constructor for faster index building (bypasses Node reconstruction)
-    core::QueryIndex index(log);
+    core::ProjectionEngine projector(store);
+    // Use direct AtomStore constructor for faster index building (bypasses Node reconstruction)
+    core::QueryIndex index(store);
 
     size_t mem_after_projector = get_memory_usage_kb();
 

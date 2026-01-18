@@ -1,4 +1,4 @@
-// atom_log.h
+// atom_store.h
 #pragma once
 #include "atom.h"
 #include "temporal_chunk.h"
@@ -65,13 +65,13 @@ struct AtomReference {
 /**
  * @brief Append-only log for storing Atoms with classification-aware write paths
  *
- * The AtomLog implements the core persistence mechanism for GTAF, routing writes
+ * The AtomStore implements the core persistence mechanism for GTAF, routing writes
  * to appropriate handlers based on Atom classification:
  * - Canonical: content-addressed with global deduplication
  * - Temporal: sequential IDs, optimized for time-series
  * - Mutable: sequential IDs with delta logging (TODO)
  */
-class AtomLog {
+class AtomStore {
 public:
     /**
      * @brief Append an atom to the log with proper classification handling

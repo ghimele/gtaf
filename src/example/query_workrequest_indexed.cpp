@@ -1,4 +1,4 @@
-#include "../core/atom_log.h"
+#include "../core/atom_store.h"
 #include "../core/projection_engine.h"
 #include "../core/query_index.h"
 #include "../types/hash_utils.h"
@@ -81,11 +81,11 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Loading data from: " << data_file << "\n";
 
-    // Load the atom log
-    core::AtomLog log;
+    // Load the atom store
+    core::AtomStore store;
     auto start = std::chrono::high_resolution_clock::now();
 
-    if (!log.load(data_file)) {
+    if (!store.load(data_file)) {
         std::cerr << "Error: Failed to load data file: " << data_file << "\n";
         return 1;
     }
@@ -96,13 +96,13 @@ int main(int argc, char* argv[]) {
     size_t mem_after_load = get_memory_usage_kb();
     size_t mem_delta_load = mem_after_load - mem_start;
 
-    std::cout << "  ✓ Loaded " << log.all().size() << " atoms in " << duration.count() << "ms\n";
+    std::cout << "  ✓ Loaded " << store.all().size() << " atoms in " << duration.count() << "ms\n";
     std::cout << "  Memory after load: " << format_memory(mem_after_load)
               << " (+" << format_memory(mem_delta_load) << ")\n\n";
 
     // Create projection engine and index
     std::cout << "Creating ProjectionEngine and QueryIndex...\n";
-    core::ProjectionEngine projector(log);
+    core::ProjectionEngine projector(store);
     core::QueryIndex index(projector);
 
     size_t mem_after_projector = get_memory_usage_kb();

@@ -1,4 +1,4 @@
-#include "atom_log.h"
+#include "atom_store.h"
 #include "../types/hash_utils.h"
 #include "persistence.h"
 #include <chrono>
@@ -7,9 +7,9 @@
 
 namespace gtaf::core {
 
-// ---- AtomLog Implementation ----
+// ---- AtomStore Implementation ----
 
-Atom AtomLog::append(
+Atom AtomStore::append(
     types::EntityId entity,
     std::string tag,
     types::AtomValue value,
@@ -28,11 +28,11 @@ Atom AtomLog::append(
     return append_temporal(entity, std::move(tag), std::move(value));
 }
 
-const std::vector<Atom>& AtomLog::all() const {
+const std::vector<Atom>& AtomStore::all() const {
     return m_atoms;
 }
 
-const std::vector<AtomReference>* AtomLog::get_entity_atoms(types::EntityId entity) const {
+const std::vector<AtomReference>* AtomStore::get_entity_atoms(types::EntityId entity) const {
     auto it = m_entity_refs.find(entity);
     if (it == m_entity_refs.end()) {
         return nullptr;  // No atoms for this entity
@@ -40,7 +40,7 @@ const std::vector<AtomReference>* AtomLog::get_entity_atoms(types::EntityId enti
     return &it->second;  // Return pointer to avoid copy
 }
 
-const Atom* AtomLog::get_atom(types::AtomId atom_id) const {
+const Atom* AtomStore::get_atom(types::AtomId atom_id) const {
     auto it = m_content_index.find(atom_id);
     if (it == m_content_index.end()) {
         return nullptr;  // Atom not found
@@ -48,7 +48,7 @@ const Atom* AtomLog::get_atom(types::AtomId atom_id) const {
     return &m_atoms[it->second];
 }
 
-std::vector<types::EntityId> AtomLog::get_all_entities() const {
+std::vector<types::EntityId> AtomStore::get_all_entities() const {
     std::vector<types::EntityId> result;
     result.reserve(m_entity_refs.size());
     for (const auto& [entity, refs] : m_entity_refs) {
@@ -57,7 +57,7 @@ std::vector<types::EntityId> AtomLog::get_all_entities() const {
     return result;
 }
 
-AtomLog::Stats AtomLog::get_stats() const {
+AtomStore::Stats AtomStore::get_stats() const {
     Stats stats;
     stats.total_atoms = m_atoms.size();
     stats.canonical_atoms = m_canonical_atom_count;
@@ -75,7 +75,7 @@ AtomLog::Stats AtomLog::get_stats() const {
     return stats;
 }
 
-size_t AtomLog::append_batch(const std::vector<BatchAtom>& atoms) {
+size_t AtomStore::append_batch(const std::vector<BatchAtom>& atoms) {
     if (atoms.empty()) return 0;
 
     // Get timestamp once for the entire batch
@@ -152,7 +152,7 @@ size_t AtomLog::append_batch(const std::vector<BatchAtom>& atoms) {
     return stored_count;
 }
 
-void AtomLog::reserve(size_t atom_count, size_t entity_count) {
+void AtomStore::reserve(size_t atom_count, size_t entity_count) {
     m_atoms.reserve(atom_count);
 
     // Pre-reserve all hash maps to avoid rehashing during bulk import
@@ -165,7 +165,7 @@ void AtomLog::reserve(size_t atom_count, size_t entity_count) {
     }
 }
 
-Atom AtomLog::append_canonical(
+Atom AtomStore::append_canonical(
     types::EntityId entity,
     std::string tag,
     types::AtomValue value
@@ -215,7 +215,7 @@ Atom AtomLog::append_canonical(
     }
 }
 
-Atom AtomLog::append_temporal(
+Atom AtomStore::append_temporal(
     types::EntityId entity,
     std::string tag,
     types::AtomValue value
@@ -260,7 +260,7 @@ Atom AtomLog::append_temporal(
     return atom;
 }
 
-Atom AtomLog::append_mutable(
+Atom AtomStore::append_mutable(
     types::EntityId entity,
     std::string tag,
     types::AtomValue value
@@ -301,7 +301,7 @@ Atom AtomLog::append_mutable(
     return atom;
 }
 
-types::AtomId AtomLog::generate_sequential_id() {
+types::AtomId AtomStore::generate_sequential_id() {
     types::AtomId atom_id;
     std::fill(atom_id.bytes.begin(), atom_id.bytes.end(), 0);
     uint64_t id_val = ++m_next_atom_id;
@@ -309,13 +309,13 @@ types::AtomId AtomLog::generate_sequential_id() {
     return atom_id;
 }
 
-types::Timestamp AtomLog::get_current_timestamp() const {
+types::Timestamp AtomStore::get_current_timestamp() const {
     return std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::system_clock::now().time_since_epoch()
     ).count();
 }
 
-TemporalChunk& AtomLog::get_or_create_active_chunk(const TemporalKey& key) {
+TemporalChunk& AtomStore::get_or_create_active_chunk(const TemporalKey& key) {
     // Check if active chunk exists
     auto it = m_active_chunks.find(key);
     if (it != m_active_chunks.end()) {
@@ -344,7 +344,7 @@ TemporalChunk& AtomLog::get_or_create_active_chunk(const TemporalKey& key) {
     return new_it->second;
 }
 
-void AtomLog::seal_and_rotate_chunk(const TemporalKey& key) {
+void AtomStore::seal_and_rotate_chunk(const TemporalKey& key) {
     // Find active chunk
     auto it = m_active_chunks.find(key);
     if (it == m_active_chunks.end()) {
@@ -368,7 +368,7 @@ void AtomLog::seal_and_rotate_chunk(const TemporalKey& key) {
     // Note: Next call to get_or_create_active_chunk() will create a new chunk
 }
 
-MutableState& AtomLog::get_or_create_mutable_state(
+MutableState& AtomStore::get_or_create_mutable_state(
     const types::EntityId& entity,
     const std::string& tag,
     const types::AtomValue& initial_value
@@ -396,7 +396,7 @@ MutableState& AtomLog::get_or_create_mutable_state(
     return new_it->second;
 }
 
-void AtomLog::emit_snapshot(const MutableState& state) {
+void AtomStore::emit_snapshot(const MutableState& state) {
     // Emit snapshot as a Canonical atom (immutable recovery point)
     const auto& metadata = state.metadata();
 
@@ -431,7 +431,7 @@ void AtomLog::emit_snapshot(const MutableState& state) {
     ++m_snapshot_count;
 }
 
-AtomLog::TemporalQueryResult AtomLog::query_temporal_range(
+AtomStore::TemporalQueryResult AtomStore::query_temporal_range(
     types::EntityId entity,
     const std::string& tag,
     types::Timestamp start_time,
@@ -459,7 +459,7 @@ AtomLog::TemporalQueryResult AtomLog::query_temporal_range(
     return result;
 }
 
-AtomLog::TemporalQueryResult AtomLog::query_temporal_all(
+AtomStore::TemporalQueryResult AtomStore::query_temporal_all(
     types::EntityId entity,
     const std::string& tag
 ) const {
@@ -467,7 +467,7 @@ AtomLog::TemporalQueryResult AtomLog::query_temporal_all(
     return query_temporal_range(entity, tag, 0, UINT64_MAX);
 }
 
-void AtomLog::collect_chunk_values(
+void AtomStore::collect_chunk_values(
     const TemporalChunk& chunk,
     types::Timestamp start_time,
     types::Timestamp end_time,
@@ -490,7 +490,7 @@ void AtomLog::collect_chunk_values(
     }
 }
 
-bool AtomLog::save(const std::string& filepath) const {
+bool AtomStore::save(const std::string& filepath) const {
     try {
         BinaryWriter writer(filepath);
 
@@ -535,7 +535,7 @@ bool AtomLog::save(const std::string& filepath) const {
     }
 }
 
-bool AtomLog::load(const std::string& filepath) {
+bool AtomStore::load(const std::string& filepath) {
     try {
         auto t_start = std::chrono::high_resolution_clock::now();
         BinaryReader reader(filepath);
@@ -682,7 +682,7 @@ bool AtomLog::load(const std::string& filepath) {
     }
 }
 
-void AtomLog::rebuild_indexes() {
+void AtomStore::rebuild_indexes() {
     // Reset statistics
     m_canonical_atom_count = 0;
     m_dedup_hits = 0;

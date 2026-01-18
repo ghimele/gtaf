@@ -1,4 +1,4 @@
-#include "../core/atom_log.h"
+#include "../core/atom_store.h"
 #include "../core/projection_engine.h"
 #include "../types/hash_utils.h"
 #include <iostream>
@@ -157,7 +157,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    core::AtomLog log;
+    core::AtomStore store;
     std::vector<std::string> column_names;
     int record_count = 0;
     int line_number = 0;
@@ -235,12 +235,12 @@ int main(int argc, char* argv[]) {
                 // Store as canonical atom (deduplicated) - empty strings are stored for NULL values
                 std::string tag = "workrequest." + col_name;
                 std::transform(tag.begin(), tag.end(), tag.begin(), ::tolower);
-                log.append(entity, tag, value, types::AtomType::Canonical);
+                store.append(entity, tag, value, types::AtomType::Canonical);
             }
 
             if(record_count< 4){
 
-                core::ProjectionEngine projector(log);
+                core::ProjectionEngine projector(store);
                 core::Node node = projector.rebuild(entity);
                 std::unordered_map<std::string, types::AtomValue> node_result;
                 node_result=node.get_all();
@@ -275,7 +275,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Total work requests imported: " << record_count << "\n\n";
 
     // Show statistics
-    auto stats = log.get_stats();
+    auto stats = store.get_stats();
     std::cout << "=== Atom Log Statistics ===\n";
     std::cout << "Total atoms: " << stats.total_atoms << "\n";
     std::cout << "Canonical atoms: " << stats.canonical_atoms << "\n";
@@ -290,7 +290,7 @@ int main(int argc, char* argv[]) {
     // Save to disk
     std::string output_file = "workrequest_import.dat";
     std::cout << "Saving to '" << output_file << "'...\n";
-    if (log.save(output_file)) {
+    if (store.save(output_file)) {
         std::cout << "  ✓ Successfully saved\n\n";
     } else {
         std::cout << "  ✗ Failed to save\n";
@@ -303,7 +303,7 @@ int main(int argc, char* argv[]) {
     // Get first work request ID
     if (record_count > 0) {
         // Rebuild projection for first few entities
-        core::ProjectionEngine projector(log);
+        core::ProjectionEngine projector(store);
         std::unordered_map<types::EntityId, gtaf::core::Node, gtaf::core::EntityIdHash> nodes;
         nodes = projector.rebuild_all();
 
@@ -357,7 +357,7 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << "=== Next Steps ===\n";
-    std::cout << "1. Load saved data: log.load(\"workrequest_import.dat\")\n";
+    std::cout << "1. Load saved data: store.load(\"workrequest_import.dat\")\n";
     std::cout << "2. Build projections: projector.rebuild(entity_id)\n";
     std::cout << "3. Query properties: node.get(\"workrequest.field\")\n";
     std::cout << "4. Analyze deduplication savings\n\n";

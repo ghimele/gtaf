@@ -1,4 +1,4 @@
-#include "../core/atom_log.h"
+#include "../core/atom_store.h"
 #include "../core/projection_engine.h"
 #include "../types/hash_utils.h"
 #include <iostream>
@@ -9,7 +9,7 @@ using namespace gtaf;
 int main() {
     std::cout << "=== GTAF History Management Demo ===\n\n";
 
-    core::AtomLog log;
+    core::AtomStore store;
 
     // Create a user entity
     types::EntityId user{};
@@ -17,25 +17,25 @@ int main() {
     user.bytes[0] = 1;
 
     std::cout << "--- Step 1: Initial Status ---\n";
-    auto atom1 = log.append(user, "user.status", std::string("inactive"), types::AtomType::Canonical);
+    auto atom1 = store.append(user, "user.status", std::string("inactive"), types::AtomType::Canonical);
     std::cout << "Created atom: user.status = 'inactive'\n";
     std::cout << "  AtomId: " << types::atom_id_to_hex(atom1.atom_id()) << "\n";
     std::cout << "  Timestamp: " << atom1.created_at() << "\n\n";
 
     std::cout << "--- Step 2: Update Status ---\n";
-    auto atom2 = log.append(user, "user.status", std::string("active"), types::AtomType::Canonical);
+    auto atom2 = store.append(user, "user.status", std::string("active"), types::AtomType::Canonical);
     std::cout << "Created atom: user.status = 'active'\n";
     std::cout << "  AtomId: " << types::atom_id_to_hex(atom2.atom_id()) << "\n";
     std::cout << "  Timestamp: " << atom2.created_at() << "\n\n";
 
     std::cout << "--- Step 3: Another Update ---\n";
-    auto atom3 = log.append(user, "user.status", std::string("suspended"), types::AtomType::Canonical);
+    auto atom3 = store.append(user, "user.status", std::string("suspended"), types::AtomType::Canonical);
     std::cout << "Created atom: user.status = 'suspended'\n";
     std::cout << "  AtomId: " << types::atom_id_to_hex(atom3.atom_id()) << "\n";
     std::cout << "  Timestamp: " << atom3.created_at() << "\n\n";
 
     std::cout << "--- Analysis ---\n";
-    std::cout << "Total atoms in log: " << log.all().size() << "\n";
+    std::cout << "Total atoms in store: " << store.all().size() << "\n";
     std::cout << "All atoms have different AtomIds: ";
     if (atom1.atom_id() != atom2.atom_id() && atom2.atom_id() != atom3.atom_id()) {
         std::cout << "YES ✓\n";
@@ -44,7 +44,7 @@ int main() {
     }
 
     // Get entity references to check LSN ordering
-    const auto* user_refs = log.get_entity_atoms(user);
+    const auto* user_refs = store.get_entity_atoms(user);
     std::cout << "Entity has " << (user_refs ? user_refs->size() : 0) << " atom references\n";
     std::cout << "LSNs are strictly increasing: ";
     if (user_refs && user_refs->size() >= 3 &&
@@ -56,7 +56,7 @@ int main() {
     }
 
     std::cout << "--- Projection View (Current State) ---\n";
-    core::ProjectionEngine projector(log);
+    core::ProjectionEngine projector(store);
     auto node = projector.rebuild(user);
 
     auto current_status = node.get("user.status");
@@ -66,12 +66,12 @@ int main() {
     }
 
     std::cout << "--- Full History ---\n";
-    std::cout << "The log preserves ALL versions:\n";
+    std::cout << "The store preserves ALL versions:\n";
     std::cout << "Using entity reference index to retrieve history:\n";
     int version = 1;
     if (user_refs) {
         for (const auto& ref : *user_refs) {
-            const core::Atom* atom = log.get_atom(ref.atom_id);
+            const core::Atom* atom = store.get_atom(ref.atom_id);
             if (atom && atom->type_tag() == "user.status") {
                 std::cout << "  Version " << version++ << ": '"
                           << std::get<std::string>(atom->value())
@@ -100,9 +100,9 @@ int main() {
 
     std::cout << "\n--- Reusing Values (Deduplication) ---\n";
     std::cout << "What if we set status back to 'active'?\n";
-    size_t atoms_before = log.all().size();
-    auto atom4 = log.append(user, "user.status", std::string("active"), types::AtomType::Canonical);
-    size_t atoms_after = log.all().size();
+    size_t atoms_before = store.all().size();
+    auto atom4 = store.append(user, "user.status", std::string("active"), types::AtomType::Canonical);
+    size_t atoms_after = store.all().size();
 
     std::cout << "AtomId of new 'active': " << types::atom_id_to_hex(atom4.atom_id()) << "\n";
     std::cout << "AtomId of old 'active': " << types::atom_id_to_hex(atom2.atom_id()) << "\n";
@@ -116,7 +116,7 @@ int main() {
     std::cout << "Content atoms after: " << atoms_after << "\n";
     std::cout << "  (No new content atom created - 'active' value already exists)\n";
 
-    const auto* updated_refs = log.get_entity_atoms(user);
+    const auto* updated_refs = store.get_entity_atoms(user);
     std::cout << "Entity references: " << (updated_refs ? updated_refs->size() : 0) << "\n";
     std::cout << "  (New reference added for this entity's latest update)\n";
 

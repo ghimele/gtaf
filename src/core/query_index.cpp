@@ -6,13 +6,13 @@
 namespace gtaf::core {
 
 QueryIndex::QueryIndex(const ProjectionEngine& projector)
-    : m_projector(&projector), m_log(nullptr) {}
+    : m_projector(&projector), m_store(nullptr) {}
 
-QueryIndex::QueryIndex(const AtomLog& log)
-    : m_projector(nullptr), m_log(&log) {}
+QueryIndex::QueryIndex(const AtomStore& store)
+    : m_projector(nullptr), m_store(&store) {}
 
 size_t QueryIndex::build_indexes_direct(const std::vector<std::string>& tags) {
-    if (!m_log || tags.empty()) {
+    if (!m_store || tags.empty()) {
         return 0;
     }
 
@@ -26,7 +26,7 @@ size_t QueryIndex::build_indexes_direct(const std::vector<std::string>& tags) {
     }
 
     // Get all entities
-    auto entities = m_log->get_all_entities();
+    auto entities = m_store->get_all_entities();
 
     // Pre-create and reserve indexes for all requested tags
     for (const auto& tag : tags) {
@@ -57,12 +57,12 @@ size_t QueryIndex::build_indexes_direct(const std::vector<std::string>& tags) {
         }
 
         // Get atom references for this entity
-        const auto* refs = m_log->get_entity_atoms(entity);
+        const auto* refs = m_store->get_entity_atoms(entity);
         if (!refs) continue;
 
         // Scan atoms and track latest value per tag
         for (const auto& ref : *refs) {
-            const Atom* atom = m_log->get_atom(ref.atom_id);
+            const Atom* atom = m_store->get_atom(ref.atom_id);
             if (!atom) continue;
 
             const std::string& type_tag = atom->type_tag();
@@ -112,8 +112,8 @@ size_t QueryIndex::build_indexes(const std::vector<std::string>& tags) {
         return 0;
     }
 
-    // Use direct log access if available (much faster)
-    if (m_log) {
+    // Use direct store access if available (much faster)
+    if (m_store) {
         return build_indexes_direct(tags);
     }
 

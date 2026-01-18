@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../core/atom_log.h"
+#include "../core/atom_store.h"
 #include <algorithm>
 #include <cstdio>
 
@@ -19,7 +19,7 @@ TEST(Persistence, SaveAndLoad) {
     auto entity = make_entity_persist(1);
 
     // Create and populate log
-    core::AtomLog log;
+    core::AtomStore log;
     log.append(entity, "name", std::string("Alice"), types::AtomType::Canonical);
     log.append(entity, "age", static_cast<int64_t>(30), types::AtomType::Canonical);
     log.append(entity, "score", 95.5, types::AtomType::Canonical);
@@ -30,7 +30,7 @@ TEST(Persistence, SaveAndLoad) {
     ASSERT_TRUE(log.save(filepath));
 
     // Load into new log
-    core::AtomLog loaded_log;
+    core::AtomStore loaded_log;
     ASSERT_TRUE(loaded_log.load(filepath));
 
     // Verify atom count
@@ -46,7 +46,7 @@ TEST(Persistence, PreserveStats) {
     auto entity2 = make_entity_persist(2);
 
     // Create log with deduplication
-    core::AtomLog log;
+    core::AtomStore log;
     log.append(entity1, "status", std::string("active"), types::AtomType::Canonical);
     log.append(entity2, "status", std::string("active"), types::AtomType::Canonical);
     log.append(entity1, "status", std::string("inactive"), types::AtomType::Canonical);
@@ -55,7 +55,7 @@ TEST(Persistence, PreserveStats) {
 
     // Save and load
     ASSERT_TRUE(log.save(filepath));
-    core::AtomLog loaded_log;
+    core::AtomStore loaded_log;
     ASSERT_TRUE(loaded_log.load(filepath));
 
     auto loaded_stats = loaded_log.get_stats();
@@ -71,14 +71,14 @@ TEST(Persistence, PreserveAtomOrder) {
     std::string filepath = "test_persist_order.dat";
     auto entity = make_entity_persist(1);
 
-    core::AtomLog log;
+    core::AtomStore log;
     log.append(entity, "value", static_cast<int64_t>(1), types::AtomType::Canonical);
     log.append(entity, "value", static_cast<int64_t>(2), types::AtomType::Canonical);
     log.append(entity, "value", static_cast<int64_t>(3), types::AtomType::Canonical);
 
     ASSERT_TRUE(log.save(filepath));
 
-    core::AtomLog loaded_log;
+    core::AtomStore loaded_log;
     ASSERT_TRUE(loaded_log.load(filepath));
 
     // Check LSN order is preserved in entity references
@@ -99,7 +99,7 @@ TEST(Persistence, LargeDataset) {
     std::string filepath = "test_persist_large.dat";
     auto entity = make_entity_persist(1);
 
-    core::AtomLog log;
+    core::AtomStore log;
 
     // Add 1000 temporal values
     for (int i = 0; i < 1000; ++i) {
@@ -108,7 +108,7 @@ TEST(Persistence, LargeDataset) {
 
     ASSERT_TRUE(log.save(filepath));
 
-    core::AtomLog loaded_log;
+    core::AtomStore loaded_log;
     ASSERT_TRUE(loaded_log.load(filepath));
 
     ASSERT_EQ(loaded_log.all().size(), 1000);
@@ -117,7 +117,7 @@ TEST(Persistence, LargeDataset) {
 }
 
 TEST(Persistence, InvalidFile) {
-    core::AtomLog log;
+    core::AtomStore log;
 
     // Try to load non-existent file
     ASSERT_FALSE(log.load("nonexistent_file.dat"));
@@ -128,13 +128,13 @@ TEST(Persistence, PreserveEdgeValues) {
     auto entity1 = make_entity_persist(1);
     auto entity2 = make_entity_persist(2);
 
-    core::AtomLog log;
+    core::AtomStore log;
     types::EdgeValue edge{entity2, "follows"};
     log.append(entity1, "edge.follows", edge, types::AtomType::Canonical);
 
     ASSERT_TRUE(log.save(filepath));
 
-    core::AtomLog loaded_log;
+    core::AtomStore loaded_log;
     ASSERT_TRUE(loaded_log.load(filepath));
 
     const auto& atoms = loaded_log.all();
@@ -152,7 +152,7 @@ TEST(Persistence, PreserveAllValueTypes) {
     std::string filepath = "test_persist_types.dat";
     auto entity = make_entity_persist(1);
 
-    core::AtomLog log;
+    core::AtomStore log;
     log.append(entity, "bool_val", true, types::AtomType::Canonical);
     log.append(entity, "int_val", static_cast<int64_t>(42), types::AtomType::Canonical);
     log.append(entity, "double_val", 3.14, types::AtomType::Canonical);
@@ -163,7 +163,7 @@ TEST(Persistence, PreserveAllValueTypes) {
 
     ASSERT_TRUE(log.save(filepath));
 
-    core::AtomLog loaded_log;
+    core::AtomStore loaded_log;
     ASSERT_TRUE(loaded_log.load(filepath));
 
     const auto& atoms = loaded_log.all();

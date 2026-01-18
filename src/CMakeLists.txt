@@ -31,7 +31,7 @@ configure_file(
 # 3. Library target (now with implementation files)
 # ------------------------------------------------------------
 add_library(gtaf_lib STATIC
-  core/atom_log.cpp
+  core/atom_store.cpp
   core/node.cpp
   core/projection_engine.cpp
   core/query_index.cpp
@@ -131,7 +131,7 @@ endif()
 # ------------------------------------------------------------
 add_executable(gtaf_test
   test/test_main.cpp
-  test/test_atom_log.cpp
+  test/test_atom_store.cpp
   test/test_persistence.cpp
   test/test_node.cpp
 )

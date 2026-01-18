@@ -1,4 +1,4 @@
-#include "../../core/atom_log.h"
+#include "../../core/atom_store.h"
 #include "../../types/hash_utils.h"
 #include <iostream>
 #include <fstream>
@@ -81,12 +81,12 @@ private:
 constexpr size_t BATCH_SIZE = 50000;
 
 // Helper to add atom to batch
-inline void add_to_batch(std::vector<core::AtomLog::BatchAtom>& batch,
+inline void add_to_batch(std::vector<core::AtomStore::BatchAtom>& batch,
                          types::EntityId entity, const char* tag, std::string_view value) {
     batch.push_back({entity, tag, std::string(value), types::AtomType::Canonical});
 }
 
-size_t import_region_fast(core::AtomLog& log, const std::string& filename) {
+size_t import_region_fast(core::AtomStore& store, const std::string& filename) {
     std::cout << "Importing REGION from: " << filename << "\n";
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -97,7 +97,7 @@ size_t import_region_fast(core::AtomLog& log, const std::string& filename) {
     }
 
     FastLineParser parser;
-    std::vector<core::AtomLog::BatchAtom> batch;
+    std::vector<core::AtomStore::BatchAtom> batch;
     batch.reserve(BATCH_SIZE);
 
     size_t row_count = 0;
@@ -120,14 +120,14 @@ size_t import_region_fast(core::AtomLog& log, const std::string& filename) {
         row_count++;
     }
 
-    log.append_batch(batch);
+    store.append_batch(batch);
     auto end_time = std::chrono::high_resolution_clock::now();
     auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
     std::cout << "  Imported " << row_count << " regions in " << elapsed_ms << " ms\n";
     return row_count;
 }
 
-size_t import_nation_fast(core::AtomLog& log, const std::string& filename) {
+size_t import_nation_fast(core::AtomStore& store, const std::string& filename) {
     std::cout << "Importing NATION from: " << filename << "\n";
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -138,7 +138,7 @@ size_t import_nation_fast(core::AtomLog& log, const std::string& filename) {
     }
 
     FastLineParser parser;
-    std::vector<core::AtomLog::BatchAtom> batch;
+    std::vector<core::AtomStore::BatchAtom> batch;
     batch.reserve(BATCH_SIZE);
 
     size_t row_count = 0;
@@ -162,14 +162,14 @@ size_t import_nation_fast(core::AtomLog& log, const std::string& filename) {
         row_count++;
     }
 
-    log.append_batch(batch);
+    store.append_batch(batch);
     auto end_time = std::chrono::high_resolution_clock::now();
     auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
     std::cout << "  Imported " << row_count << " nations in " << elapsed_ms << " ms\n";
     return row_count;
 }
 
-size_t import_supplier_fast(core::AtomLog& log, const std::string& filename) {
+size_t import_supplier_fast(core::AtomStore& store, const std::string& filename) {
     std::cout << "Importing SUPPLIER from: " << filename << "\n";
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -180,7 +180,7 @@ size_t import_supplier_fast(core::AtomLog& log, const std::string& filename) {
     }
 
     FastLineParser parser;
-    std::vector<core::AtomLog::BatchAtom> batch;
+    std::vector<core::AtomStore::BatchAtom> batch;
     batch.reserve(BATCH_SIZE * 7);
 
     size_t row_count = 0;
@@ -207,14 +207,14 @@ size_t import_supplier_fast(core::AtomLog& log, const std::string& filename) {
         row_count++;
 
         if (batch.size() >= BATCH_SIZE * 7) {
-            log.append_batch(batch);
+            store.append_batch(batch);
             batch.clear();
             std::cout << "  Processed " << row_count << " suppliers...\r" << std::flush;
         }
     }
 
     if (!batch.empty()) {
-        log.append_batch(batch);
+        store.append_batch(batch);
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();
@@ -223,7 +223,7 @@ size_t import_supplier_fast(core::AtomLog& log, const std::string& filename) {
     return row_count;
 }
 
-size_t import_customer_fast(core::AtomLog& log, const std::string& filename) {
+size_t import_customer_fast(core::AtomStore& store, const std::string& filename) {
     std::cout << "Importing CUSTOMER from: " << filename << "\n";
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -234,7 +234,7 @@ size_t import_customer_fast(core::AtomLog& log, const std::string& filename) {
     }
 
     FastLineParser parser;
-    std::vector<core::AtomLog::BatchAtom> batch;
+    std::vector<core::AtomStore::BatchAtom> batch;
     batch.reserve(BATCH_SIZE * 8);
 
     size_t row_count = 0;
@@ -262,14 +262,14 @@ size_t import_customer_fast(core::AtomLog& log, const std::string& filename) {
         row_count++;
 
         if (batch.size() >= BATCH_SIZE * 8) {
-            log.append_batch(batch);
+            store.append_batch(batch);
             batch.clear();
             std::cout << "  Processed " << row_count << " customers...\r" << std::flush;
         }
     }
 
     if (!batch.empty()) {
-        log.append_batch(batch);
+        store.append_batch(batch);
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();
@@ -278,7 +278,7 @@ size_t import_customer_fast(core::AtomLog& log, const std::string& filename) {
     return row_count;
 }
 
-size_t import_part_fast(core::AtomLog& log, const std::string& filename) {
+size_t import_part_fast(core::AtomStore& store, const std::string& filename) {
     std::cout << "Importing PART from: " << filename << "\n";
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -289,7 +289,7 @@ size_t import_part_fast(core::AtomLog& log, const std::string& filename) {
     }
 
     FastLineParser parser;
-    std::vector<core::AtomLog::BatchAtom> batch;
+    std::vector<core::AtomStore::BatchAtom> batch;
     batch.reserve(BATCH_SIZE * 9);
 
     size_t row_count = 0;
@@ -318,14 +318,14 @@ size_t import_part_fast(core::AtomLog& log, const std::string& filename) {
         row_count++;
 
         if (batch.size() >= BATCH_SIZE * 9) {
-            log.append_batch(batch);
+            store.append_batch(batch);
             batch.clear();
             std::cout << "  Processed " << row_count << " parts...\r" << std::flush;
         }
     }
 
     if (!batch.empty()) {
-        log.append_batch(batch);
+        store.append_batch(batch);
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();
@@ -334,7 +334,7 @@ size_t import_part_fast(core::AtomLog& log, const std::string& filename) {
     return row_count;
 }
 
-size_t import_partsupp_fast(core::AtomLog& log, const std::string& filename) {
+size_t import_partsupp_fast(core::AtomStore& store, const std::string& filename) {
     std::cout << "Importing PARTSUPP from: " << filename << "\n";
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -345,7 +345,7 @@ size_t import_partsupp_fast(core::AtomLog& log, const std::string& filename) {
     }
 
     FastLineParser parser;
-    std::vector<core::AtomLog::BatchAtom> batch;
+    std::vector<core::AtomStore::BatchAtom> batch;
     batch.reserve(BATCH_SIZE * 5);
 
     size_t row_count = 0;
@@ -373,14 +373,14 @@ size_t import_partsupp_fast(core::AtomLog& log, const std::string& filename) {
         row_count++;
 
         if (batch.size() >= BATCH_SIZE * 5) {
-            log.append_batch(batch);
+            store.append_batch(batch);
             batch.clear();
             std::cout << "  Processed " << row_count << " partsupp...\r" << std::flush;
         }
     }
 
     if (!batch.empty()) {
-        log.append_batch(batch);
+        store.append_batch(batch);
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();
@@ -389,7 +389,7 @@ size_t import_partsupp_fast(core::AtomLog& log, const std::string& filename) {
     return row_count;
 }
 
-size_t import_orders_fast(core::AtomLog& log, const std::string& filename) {
+size_t import_orders_fast(core::AtomStore& store, const std::string& filename) {
     std::cout << "Importing ORDERS from: " << filename << "\n";
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -400,7 +400,7 @@ size_t import_orders_fast(core::AtomLog& log, const std::string& filename) {
     }
 
     FastLineParser parser;
-    std::vector<core::AtomLog::BatchAtom> batch;
+    std::vector<core::AtomStore::BatchAtom> batch;
     batch.reserve(BATCH_SIZE * 9);
 
     size_t row_count = 0;
@@ -429,14 +429,14 @@ size_t import_orders_fast(core::AtomLog& log, const std::string& filename) {
         row_count++;
 
         if (batch.size() >= BATCH_SIZE * 9) {
-            log.append_batch(batch);
+            store.append_batch(batch);
             batch.clear();
             std::cout << "  Processed " << row_count << " orders...\r" << std::flush;
         }
     }
 
     if (!batch.empty()) {
-        log.append_batch(batch);
+        store.append_batch(batch);
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();
@@ -445,7 +445,7 @@ size_t import_orders_fast(core::AtomLog& log, const std::string& filename) {
     return row_count;
 }
 
-size_t import_lineitem_fast(core::AtomLog& log, const std::string& filename) {
+size_t import_lineitem_fast(core::AtomStore& store, const std::string& filename) {
     std::cout << "Importing LINEITEM from: " << filename << " (largest table)\n";
 
     std::ifstream file(filename);
@@ -460,7 +460,7 @@ size_t import_lineitem_fast(core::AtomLog& log, const std::string& filename) {
     file.rdbuf()->pubsetbuf(buffer.data(), BUFFER_SIZE);
 
     FastLineParser parser;
-    std::vector<core::AtomLog::BatchAtom> batch;
+    std::vector<core::AtomStore::BatchAtom> batch;
     batch.reserve(BATCH_SIZE * 16);
 
     size_t row_count = 0;
@@ -501,7 +501,7 @@ size_t import_lineitem_fast(core::AtomLog& log, const std::string& filename) {
         row_count++;
 
         if (batch.size() >= BATCH_SIZE * 16) {
-            log.append_batch(batch);
+            store.append_batch(batch);
             batch.clear();
 
             auto now = std::chrono::high_resolution_clock::now();
@@ -513,7 +513,7 @@ size_t import_lineitem_fast(core::AtomLog& log, const std::string& filename) {
     }
 
     if (!batch.empty()) {
-        log.append_batch(batch);
+        store.append_batch(batch);
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();
@@ -544,7 +544,7 @@ int main(int argc, char* argv[]) {
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    core::AtomLog log;
+    core::AtomStore store;
 
     // Pre-reserve capacity to avoid rehashing during bulk import
     // TPC-H SF1: ~8.6M atoms, ~1.5M entities (estimate based on table sizes)
@@ -553,20 +553,20 @@ int main(int argc, char* argv[]) {
     constexpr size_t ESTIMATED_ATOMS = 10000000;  // 10M atoms
     constexpr size_t ESTIMATED_ENTITIES = 2000000; // 2M entities
     std::cout << "Pre-allocating memory for ~" << ESTIMATED_ATOMS << " atoms, ~" << ESTIMATED_ENTITIES << " entities...\n";
-    log.reserve(ESTIMATED_ATOMS, ESTIMATED_ENTITIES);
+    store.reserve(ESTIMATED_ATOMS, ESTIMATED_ENTITIES);
 
     std::cout << "\n=== Importing TPC-H Tables ===\n\n";
 
     size_t total_rows = 0;
 
-    total_rows += import_region_fast(log, data_dir + "region.tbl");
-    total_rows += import_nation_fast(log, data_dir + "nation.tbl");
-    total_rows += import_supplier_fast(log, data_dir + "supplier.tbl");
-    total_rows += import_customer_fast(log, data_dir + "customer.tbl");
-    total_rows += import_part_fast(log, data_dir + "part.tbl");
-    total_rows += import_partsupp_fast(log, data_dir + "partsupp.tbl");
-    total_rows += import_orders_fast(log, data_dir + "orders.tbl");
-    total_rows += import_lineitem_fast(log, data_dir + "lineitem.tbl");
+    total_rows += import_region_fast(store, data_dir + "region.tbl");
+    total_rows += import_nation_fast(store, data_dir + "nation.tbl");
+    total_rows += import_supplier_fast(store, data_dir + "supplier.tbl");
+    total_rows += import_customer_fast(store, data_dir + "customer.tbl");
+    total_rows += import_part_fast(store, data_dir + "part.tbl");
+    total_rows += import_partsupp_fast(store, data_dir + "partsupp.tbl");
+    total_rows += import_orders_fast(store, data_dir + "orders.tbl");
+    total_rows += import_lineitem_fast(store, data_dir + "lineitem.tbl");
 
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time);
@@ -576,13 +576,13 @@ int main(int argc, char* argv[]) {
 
     std::cout << "\n=== Import Summary ===\n";
     std::cout << "Total rows imported: " << total_rows << "\n";
-    std::cout << "Total atoms created: " << log.all().size() << "\n";
+    std::cout << "Total atoms created: " << store.all().size() << "\n";
     std::cout << "Import time: " << duration.count() << " seconds\n";
     std::cout << "Throughput: " << (duration.count() > 0 ? total_rows / duration.count() : 0) << " rows/sec\n";
     std::cout << "Memory used: " << format_memory(mem_delta) << "\n";
     std::cout << "Final memory: " << format_memory(mem_after) << "\n\n";
 
-    auto stats = log.get_stats();
+    auto stats = store.get_stats();
     std::cout << "=== Deduplication Statistics ===\n";
     std::cout << "Total atoms: " << stats.total_atoms << "\n";
     std::cout << "Canonical atoms: " << stats.canonical_atoms << "\n";
@@ -594,7 +594,7 @@ int main(int argc, char* argv[]) {
               << "%\n\n";
 
     std::cout << "Saving to: " << output_file << "\n";
-    if (log.save(output_file)) {
+    if (store.save(output_file)) {
         std::cout << "  Saved successfully\n";
     } else {
         std::cerr << "  Error saving file\n";
