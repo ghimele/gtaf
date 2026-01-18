@@ -52,9 +52,10 @@ the system must:
 ### 4.1 Atom Identity
 
 Atoms are uniquely identified by their semantic content:
-‘''
+
+```
 (tag, normalized_value, type)
-'''
+```
 
 If an atom with identical identity already exists, it is reused.
 Atoms themselves are immutable and unaware of which entities reference them.
