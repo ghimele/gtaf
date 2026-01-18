@@ -404,7 +404,7 @@ GTAF is now in **Alpha** with core functionality implemented and tested.
 **Testing & CI/CD** ✓
 
 - 28 comprehensive unit tests (all passing)
-- Test coverage: AtomLog, Persistence, Node projections
+- Test coverage: AtomStore, Persistence, Node projections
 - GitHub Actions integration (Linux + Windows)
 - Automated test execution on push/PR
 

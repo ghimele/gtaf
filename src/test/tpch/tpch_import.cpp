@@ -1,4 +1,4 @@
-#include "../../core/atom_log.h"
+#include "../../core/atom_store.h"
 #include "../../types/hash_utils.h"
 #include <iostream>
 #include <fstream>
@@ -19,9 +19,9 @@ struct BatchAtom {
 };
 
 // Batch append function
-void batch_append(core::AtomLog& log, const std::vector<BatchAtom>& batch) {
+void batch_append(core::AtomStore& store, const std::vector<BatchAtom>& batch) {
     for (const auto& atom : batch) {
-        log.append(atom.entity, atom.tag, atom.value, atom.classification);
+        store.append(atom.entity, atom.tag, atom.value, atom.classification);
     }
 }
 
@@ -101,7 +101,7 @@ void parse_tbl_line(const std::string& line, std::vector<std::string>& fields) {
 
 // Import REGION table (5 rows)
 // Format: R_REGIONKEY|R_NAME|R_COMMENT|
-size_t import_region(core::AtomLog& log, const std::string& filename) {
+size_t import_region(core::AtomStore& store, const std::string& filename) {
     std::cout << "Importing REGION from: " << filename << "\n";
 
     std::ifstream file(filename);
@@ -134,13 +134,13 @@ size_t import_region(core::AtomLog& log, const std::string& filename) {
         row_count++;
 
         if (batch.size() >= 3000) {
-            batch_append(log, batch);
+            batch_append(store, batch);
             batch.clear();
         }
     }
 
     if (!batch.empty()) {
-        batch_append(log, batch);
+        batch_append(store, batch);
     }
 
     std::cout << "  ✓ Imported " << row_count << " regions\n";
@@ -149,7 +149,7 @@ size_t import_region(core::AtomLog& log, const std::string& filename) {
 
 // Import NATION table (25 rows)
 // Format: N_NATIONKEY|N_NAME|N_REGIONKEY|N_COMMENT|
-size_t import_nation(core::AtomLog& log, const std::string& filename) {
+size_t import_nation(core::AtomStore& store, const std::string& filename) {
     std::cout << "Importing NATION from: " << filename << "\n";
 
     std::ifstream file(filename);
@@ -183,13 +183,13 @@ size_t import_nation(core::AtomLog& log, const std::string& filename) {
         row_count++;
 
         if (batch.size() >= 4000) {
-            batch_append(log, batch);
+            batch_append(store, batch);
             batch.clear();
         }
     }
 
     if (!batch.empty()) {
-        batch_append(log, batch);
+        batch_append(store, batch);
     }
 
     std::cout << "  ✓ Imported " << row_count << " nations\n";
@@ -198,7 +198,7 @@ size_t import_nation(core::AtomLog& log, const std::string& filename) {
 
 // Import SUPPLIER table (10K × SF rows)
 // Format: S_SUPPKEY|S_NAME|S_ADDRESS|S_NATIONKEY|S_PHONE|S_ACCTBAL|S_COMMENT|
-size_t import_supplier(core::AtomLog& log, const std::string& filename) {
+size_t import_supplier(core::AtomStore& store, const std::string& filename) {
     std::cout << "Importing SUPPLIER from: " << filename << "\n";
 
     std::ifstream file(filename);
@@ -235,7 +235,7 @@ size_t import_supplier(core::AtomLog& log, const std::string& filename) {
         row_count++;
 
         if (batch.size() >= 70000) {
-            batch_append(log, batch);
+            batch_append(store, batch);
             batch.clear();
         }
 
@@ -245,7 +245,7 @@ size_t import_supplier(core::AtomLog& log, const std::string& filename) {
     }
 
     if (!batch.empty()) {
-        batch_append(log, batch);
+        batch_append(store, batch);
     }
 
     std::cout << "\n  ✓ Imported " << row_count << " suppliers\n";
@@ -254,7 +254,7 @@ size_t import_supplier(core::AtomLog& log, const std::string& filename) {
 
 // Import CUSTOMER table (150K × SF rows)
 // Format: C_CUSTKEY|C_NAME|C_ADDRESS|C_NATIONKEY|C_PHONE|C_ACCTBAL|C_MKTSEGMENT|C_COMMENT|
-size_t import_customer(core::AtomLog& log, const std::string& filename) {
+size_t import_customer(core::AtomStore& store, const std::string& filename) {
     std::cout << "Importing CUSTOMER from: " << filename << "\n";
 
     std::ifstream file(filename);
@@ -292,7 +292,7 @@ size_t import_customer(core::AtomLog& log, const std::string& filename) {
         row_count++;
 
         if (batch.size() >= 80000) {
-            batch_append(log, batch);
+            batch_append(store, batch);
             batch.clear();
         }
 
@@ -302,7 +302,7 @@ size_t import_customer(core::AtomLog& log, const std::string& filename) {
     }
 
     if (!batch.empty()) {
-        batch_append(log, batch);
+        batch_append(store, batch);
     }
 
     std::cout << "\n  ✓ Imported " << row_count << " customers\n";
@@ -311,7 +311,7 @@ size_t import_customer(core::AtomLog& log, const std::string& filename) {
 
 // Import PART table (200K × SF rows)
 // Format: P_PARTKEY|P_NAME|P_MFGR|P_BRAND|P_TYPE|P_SIZE|P_CONTAINER|P_RETAILPRICE|P_COMMENT|
-size_t import_part(core::AtomLog& log, const std::string& filename) {
+size_t import_part(core::AtomStore& store, const std::string& filename) {
     std::cout << "Importing PART from: " << filename << "\n";
 
     std::ifstream file(filename);
@@ -350,7 +350,7 @@ size_t import_part(core::AtomLog& log, const std::string& filename) {
         row_count++;
 
         if (batch.size() >= 90000) {
-            batch_append(log, batch);
+            batch_append(store, batch);
             batch.clear();
         }
 
@@ -360,7 +360,7 @@ size_t import_part(core::AtomLog& log, const std::string& filename) {
     }
 
     if (!batch.empty()) {
-        batch_append(log, batch);
+        batch_append(store, batch);
     }
 
     std::cout << "\n  ✓ Imported " << row_count << " parts\n";
@@ -369,7 +369,7 @@ size_t import_part(core::AtomLog& log, const std::string& filename) {
 
 // Import PARTSUPP table (800K × SF rows)
 // Format: PS_PARTKEY|PS_SUPPKEY|PS_AVAILQTY|PS_SUPPLYCOST|PS_COMMENT|
-size_t import_partsupp(core::AtomLog& log, const std::string& filename) {
+size_t import_partsupp(core::AtomStore& store, const std::string& filename) {
     std::cout << "Importing PARTSUPP from: " << filename << "\n";
 
     std::ifstream file(filename);
@@ -408,7 +408,7 @@ size_t import_partsupp(core::AtomLog& log, const std::string& filename) {
         row_count++;
 
         if (batch.size() >= 50000) {
-            batch_append(log, batch);
+            batch_append(store, batch);
             batch.clear();
         }
 
@@ -418,7 +418,7 @@ size_t import_partsupp(core::AtomLog& log, const std::string& filename) {
     }
 
     if (!batch.empty()) {
-        batch_append(log, batch);
+        batch_append(store, batch);
     }
 
     std::cout << "\n  ✓ Imported " << row_count << " partsupp records\n";
@@ -427,7 +427,7 @@ size_t import_partsupp(core::AtomLog& log, const std::string& filename) {
 
 // Import ORDERS table (1.5M × SF rows)
 // Format: O_ORDERKEY|O_CUSTKEY|O_ORDERSTATUS|O_TOTALPRICE|O_ORDERDATE|O_ORDERPRIORITY|O_CLERK|O_SHIPPRIORITY|O_COMMENT|
-size_t import_orders(core::AtomLog& log, const std::string& filename) {
+size_t import_orders(core::AtomStore& store, const std::string& filename) {
     std::cout << "Importing ORDERS from: " << filename << "\n";
 
     std::ifstream file(filename);
@@ -466,7 +466,7 @@ size_t import_orders(core::AtomLog& log, const std::string& filename) {
         row_count++;
 
         if (batch.size() >= 90000) {
-            batch_append(log, batch);
+            batch_append(store, batch);
             batch.clear();
         }
 
@@ -476,7 +476,7 @@ size_t import_orders(core::AtomLog& log, const std::string& filename) {
     }
 
     if (!batch.empty()) {
-        batch_append(log, batch);
+        batch_append(store, batch);
     }
 
     std::cout << "\n  ✓ Imported " << row_count << " orders\n";
@@ -485,7 +485,7 @@ size_t import_orders(core::AtomLog& log, const std::string& filename) {
 
 // Import LINEITEM table (6M × SF rows) - LARGEST TABLE
 // Format: L_ORDERKEY|L_PARTKEY|L_SUPPKEY|L_LINENUMBER|L_QUANTITY|L_EXTENDEDPRICE|L_DISCOUNT|L_TAX|L_RETURNFLAG|L_LINESTATUS|L_SHIPDATE|L_COMMITDATE|L_RECEIPTDATE|L_SHIPINSTRUCT|L_SHIPMODE|L_COMMENT|
-size_t import_lineitem(core::AtomLog& log, const std::string& filename) {
+size_t import_lineitem(core::AtomStore& store, const std::string& filename) {
     std::cout << "Importing LINEITEM from: " << filename << " (this is the largest table, may take a while...)\n";
 
     std::ifstream file(filename);
@@ -535,7 +535,7 @@ size_t import_lineitem(core::AtomLog& log, const std::string& filename) {
         row_count++;
 
         if (batch.size() >= 160000) {
-            batch_append(log, batch);
+            batch_append(store, batch);
             batch.clear();
         }
 
@@ -545,7 +545,7 @@ size_t import_lineitem(core::AtomLog& log, const std::string& filename) {
     }
 
     if (!batch.empty()) {
-        batch_append(log, batch);
+        batch_append(store, batch);
     }
 
     std::cout << "\n  ✓ Imported " << row_count << " line items\n";
@@ -584,22 +584,22 @@ int main(int argc, char* argv[]) {
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    // Create atom log
-    core::AtomLog log;
+    // Create atom store
+    core::AtomStore store;
 
     // Import tables in order (smallest to largest)
     std::cout << "=== Importing TPC-H Tables ===\n\n";
 
     size_t total_rows = 0;
 
-    total_rows += import_region(log, data_dir + "region.tbl");
-    total_rows += import_nation(log, data_dir + "nation.tbl");
-    total_rows += import_supplier(log, data_dir + "supplier.tbl");
-    total_rows += import_customer(log, data_dir + "customer.tbl");
-    total_rows += import_part(log, data_dir + "part.tbl");
-    total_rows += import_partsupp(log, data_dir + "partsupp.tbl");
-    total_rows += import_orders(log, data_dir + "orders.tbl");
-    total_rows += import_lineitem(log, data_dir + "lineitem.tbl");
+    total_rows += import_region(store, data_dir + "region.tbl");
+    total_rows += import_nation(store, data_dir + "nation.tbl");
+    total_rows += import_supplier(store, data_dir + "supplier.tbl");
+    total_rows += import_customer(store, data_dir + "customer.tbl");
+    total_rows += import_part(store, data_dir + "part.tbl");
+    total_rows += import_partsupp(store, data_dir + "partsupp.tbl");
+    total_rows += import_orders(store, data_dir + "orders.tbl");
+    total_rows += import_lineitem(store, data_dir + "lineitem.tbl");
 
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time);
@@ -609,13 +609,13 @@ int main(int argc, char* argv[]) {
 
     std::cout << "\n=== Import Summary ===\n";
     std::cout << "Total rows imported: " << total_rows << "\n";
-    std::cout << "Total atoms created: " << log.all().size() << "\n";
+    std::cout << "Total atoms created: " << store.all().size() << "\n";
     std::cout << "Import time: " << duration.count() << " seconds\n";
     std::cout << "Memory used: " << format_memory(mem_delta) << "\n";
     std::cout << "Final memory: " << format_memory(mem_after) << "\n\n";
 
     // Show deduplication stats
-    auto stats = log.get_stats();
+    auto stats = store.get_stats();
     std::cout << "=== Deduplication Statistics ===\n";
     std::cout << "Total atoms: " << stats.total_atoms << "\n";
     std::cout << "Canonical atoms: " << stats.canonical_atoms << "\n";
@@ -628,7 +628,7 @@ int main(int argc, char* argv[]) {
 
     // Save to file
     std::cout << "Saving to: " << output_file << "\n";
-    if (log.save(output_file)) {
+    if (store.save(output_file)) {
         std::cout << "  ✓ Saved successfully\n";
     } else {
         std::cerr << "  ✗ Error saving file\n";

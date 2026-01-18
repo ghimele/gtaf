@@ -1,4 +1,4 @@
-#include "core/atom_log.h"
+#include "core/atom_store.h"
 #include "types/hash_utils.h"
 #include <iostream>
 #include <fstream>
@@ -19,7 +19,7 @@ struct BatchAtom {
 };
 
 // Batch append function
-void batch_append(core::AtomLog& log, const std::vector<BatchAtom>& batch) {
+void batch_append(core::AtomStore& log, const std::vector<BatchAtom>& batch) {
     for (const auto& atom : batch) {
         log.append(atom.entity, atom.tag, atom.value, atom.classification);
     }
@@ -80,7 +80,7 @@ int main(int argc, char* argv[]) {
     auto start_time = std::chrono::high_resolution_clock::now();
 
     // Test REGION and NATION only
-    core::AtomLog log;
+    core::AtomStore log;
     std::vector<std::string> fields;
     std::vector<BatchAtom> batch;
     batch.reserve(1000);

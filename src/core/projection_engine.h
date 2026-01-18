@@ -1,6 +1,6 @@
 // projection_engine.h
 #pragma once
-#include "atom_log.h"
+#include "atom_store.h"
 #include "node.h"
 #include <unordered_map>
 #include <vector>
@@ -8,22 +8,22 @@
 
 namespace gtaf::core {
 
-// EntityIdHash is now defined in atom_log.h
+// EntityIdHash is now defined in atom_store.h
 
 /**
- * @brief Engine for rebuilding Node projections from the atom log
+ * @brief Engine for rebuilding Node projections from the atom store
  *
- * The ProjectionEngine iterates through the log and reconstructs
+ * The ProjectionEngine iterates through the store and reconstructs
  * entity state by filtering and applying relevant atoms.
  */
 class ProjectionEngine {
 public:
     /**
-     * @brief Construct a ProjectionEngine for a given log
+     * @brief Construct a ProjectionEngine for a given store
      *
-     * @param log Reference to the atom log (must outlive this engine)
+     * @param store Reference to the atom store (must outlive this engine)
      */
-    explicit ProjectionEngine(const AtomLog& log);
+    explicit ProjectionEngine(const AtomStore& store);
 
     /**
      * @brief Rebuild a Node projection for a specific entity
@@ -75,14 +75,14 @@ public:
     void rebuild_all_streaming(Callback callback, size_t batch_size = 1000) const;
 
 private:
-    const AtomLog& m_log;
+    const AtomStore& m_store;
 };
 
 // Template implementation (must be in header)
 template<typename Callback>
 void ProjectionEngine::rebuild_all_streaming(Callback callback, [[maybe_unused]] size_t batch_size) const {
     // Get all entities from the reference layer
-    auto entities = m_log.get_all_entities();
+    auto entities = m_store.get_all_entities();
 
     // Process each entity directly - no batching needed since we're streaming
     for (const auto& entity : entities) {
@@ -90,10 +90,10 @@ void ProjectionEngine::rebuild_all_streaming(Callback callback, [[maybe_unused]]
         Node node(entity);
 
         // Get atom references directly (no copy, just pointer)
-        const auto* refs = m_log.get_entity_atoms(entity);
+        const auto* refs = m_store.get_entity_atoms(entity);
         if (refs) {
             for (const auto& ref : *refs) {
-                const Atom* atom = m_log.get_atom(ref.atom_id);
+                const Atom* atom = m_store.get_atom(ref.atom_id);
                 if (atom) {
                     node.apply(atom->atom_id(), atom->type_tag(), atom->value(), ref.lsn);
                 }

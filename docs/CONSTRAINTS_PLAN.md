@@ -44,12 +44,12 @@ struct EdgeValue {
 **However**, EdgeValue provides **no validation** - you can create edges pointing to entities that don't exist:
 
 ```cpp
-AtomLog log;
+AtomStore store;
 EntityId order = make_entity(1);
 EntityId customer999 = make_entity(999); // Never created!
 
 EdgeValue edge{customer999, "customer", 1.0};
-log.append(order, "customer", edge, Canonical); // ✓ Succeeds silently
+store.append(order, "customer", edge, Canonical); // ✓ Succeeds silently
 
 // Later when querying: Data corruption - edge points to nothing!
 ```
@@ -59,7 +59,7 @@ log.append(order, "customer", edge, Canonical); // ✓ Succeeds silently
 Foreign Key constraints validate that referenced entities actually exist in the log:
 
 ```cpp
-AtomLog log;
+AtomStore store;
 
 // Add FK constraint
 log.add_constraint(
@@ -70,7 +70,7 @@ EntityId order = make_entity(1);
 EntityId customer999 = make_entity(999); // Not in log
 
 EdgeValue edge{customer999, "customer", 1.0};
-log.append(order, "customer", edge, Canonical); // ✗ THROWS!
+store.append(order, "customer", edge, Canonical); // ✗ THROWS!
 // Error: "Constraint violation: customer_must_exist - target entity 999 does not exist"
 ```
 
@@ -135,7 +135,7 @@ log.append(order, "customer", edge, Canonical); // ✗ THROWS!
 └─────────────┬───────────────────────┘
               │
 ┌─────────────▼───────────────────────┐
-│   AtomLog::append()                  │
+│   AtomStore::append()                  │
 │   (Validates before LSN assignment)  │
 └──────────────────────────────────────┘
 ```
@@ -179,7 +179,7 @@ struct Constraint {
     virtual bool validate(
         const AtomValue& value,
         const EntityId& entity,
-        const AtomLog& log
+        const AtomStore& store
     ) const = 0;
 
     virtual std::string error_message() const = 0;
@@ -224,7 +224,7 @@ struct ForeignKeyConstraint : Constraint {
     bool validate(
         const AtomValue& value,
         const EntityId& entity,
-        const AtomLog& log,
+        const AtomStore& store,
         const ConstraintValidator& validator
     ) const override {
         if (auto* edge = std::get_if<types::EdgeValue>(&value)) {
@@ -252,7 +252,7 @@ public:
         const std::string& tag,
         const types::AtomValue& value,
         types::AtomType classification,
-        const AtomLog& log
+        const AtomStore& store
     ) const;
 
     bool has_constraints(const std::string& tag) const;
@@ -260,7 +260,7 @@ public:
     // Entity cache for FK validation (O(1))
     void notify_entity_created(types::EntityId entity);
     bool entity_exists(types::EntityId entity) const;
-    void rebuild_entity_cache(const AtomLog& log);
+    void rebuild_entity_cache(const AtomStore& store);
 
 private:
     std::unordered_map<std::string, std::vector<std::unique_ptr<Constraint>>> m_constraints;
@@ -275,9 +275,9 @@ private:
 };
 ```
 
-**AtomLog Integration:**
+**AtomStore Integration:**
 ```cpp
-Atom AtomLog::append(
+Atom AtomStore::append(
     types::EntityId entity,
     std::string tag,
     types::AtomValue value,
@@ -303,7 +303,7 @@ Atom AtomLog::append(
     // Existing append logic...
 }
 
-void AtomLog::load(const std::string& filepath) {
+void AtomStore::load(const std::string& filepath) {
     // Existing load logic...
 
     // Rebuild constraint caches
@@ -404,7 +404,7 @@ void AtomLog::load(const std::string& filepath) {
 
 ```cpp
 TEST(Constraints, ForeignKeyWithEdgeValue) {
-    core::AtomLog log;
+    core::AtomStore store;
 
     // Add FK constraint
     log.add_constraint(
@@ -418,18 +418,18 @@ TEST(Constraints, ForeignKeyWithEdgeValue) {
     auto order1 = make_entity(100);
 
     // Create customer first
-    log.append(customer1, "name", std::string("Alice"), Canonical);
+    store.append(customer1, "name", std::string("Alice"), Canonical);
 
     // Valid edge - customer exists
     types::EdgeValue valid{customer1, "customer", 1.0};
     ASSERT_NO_THROW(
-        log.append(order1, "order.customer", valid, Canonical)
+        store.append(order1, "order.customer", valid, Canonical)
     );
 
     // Invalid edge - customer999 doesn't exist
     types::EdgeValue invalid{make_entity(999), "customer", 1.0};
     ASSERT_THROWS(
-        log.append(order1, "order.customer", invalid, Canonical),
+        store.append(order1, "order.customer", invalid, Canonical),
         std::runtime_error
     );
 }
@@ -442,7 +442,7 @@ TEST(Constraints, ForeignKeyWithEdgeValue) {
 ### Fluent Constraint Builder
 
 ```cpp
-AtomLog log;
+AtomStore store;
 
 // NOT NULL
 log.add_constraint(
@@ -477,7 +477,7 @@ log.add_constraint(
 
 ```cpp
 try {
-    log.append(user, "user.age", static_cast<int64_t>(-5), Canonical);
+    store.append(user, "user.age", static_cast<int64_t>(-5), Canonical);
 } catch (const std::runtime_error& e) {
     std::cout << "Constraint violation: " << e.what() << "\n";
     // Output:

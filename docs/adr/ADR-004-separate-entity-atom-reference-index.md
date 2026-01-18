@@ -29,7 +29,7 @@ private:
 };
 ```
 
-When deduplication occurs in `AtomLog::append()` (src/core/atom_log.cpp:52-56):
+When deduplication occurs in `AtomStore::append()` (src/core/atom_log.cpp:52-56):
 
 ```cpp
 if (auto it = m_canonical_dedup_map.find(atom_id); it != m_canonical_dedup_map.end()) {
@@ -44,11 +44,11 @@ if (auto it = m_canonical_dedup_map.find(atom_id); it != m_canonical_dedup_map.e
 
 ```cpp
 // user1 appends "active" status
-auto atom1 = log.append(user1, "user.status", "active", Canonical);
+auto atom1 = store.append(user1, "user.status", "active", Canonical);
 // atom1: entity_id=user1, atom_id=hash("user.status", "active")
 
 // user2 appends same "active" status (deduplication)
-auto atom2 = log.append(user2, "user.status", "active", Canonical);
+auto atom2 = store.append(user2, "user.status", "active", Canonical);
 // atom2: entity_id=user1 (WRONG!), atom_id=same hash
 
 // Rebuild user2
@@ -108,10 +108,10 @@ private:
 };
 ```
 
-**2. Add reference tracking to AtomLog:**
+**2. Add reference tracking to AtomStore:**
 
 ```cpp
-class AtomLog {
+class AtomStore {
 private:
     // Content layer (deduplicated storage)
     std::vector<core::Atom> m_atoms;
@@ -132,7 +132,7 @@ private:
 **3. Update append logic:**
 
 ```cpp
-Atom AtomLog::append(EntityId entity, const string& type_tag,
+Atom AtomStore::append(EntityId entity, const string& type_tag,
                      const AtomValue& value, AtomType atom_type) {
     AtomId atom_id = generate_atom_id(type_tag, value, atom_type);
 
@@ -172,7 +172,7 @@ Node ProjectionEngine::rebuild(EntityId entity) const {
 
     // Apply atoms in order
     for (const auto& ref : sorted_refs) {
-        const Atom& atom = m_log.get_atom(ref.atom_id);
+        const Atom& atom = m_store.get_atom(ref.atom_id);
         node.apply(atom.atom_id(), atom.type_tag(), atom.value(), ref.lsn);
     }
 
@@ -292,7 +292,7 @@ If entities reference <1% of atoms: ~100x speedup
 
 ### Phase 1: Core Data Structure Changes (Week 1)
 - Remove `entity_id` from Atom class
-- Add reference tracking structures to AtomLog
+- Add reference tracking structures to AtomStore
 - Update `append()` logic
 - Add query methods: `get_entity_atoms()`, `get_atom()`
 
@@ -330,14 +330,14 @@ If entities reference <1% of atoms: ~100x speedup
 ### Unit Tests
 
 ```cpp
-TEST(AtomLogTest, MultiEntityDeduplication) {
-    AtomLog log;
+TEST(AtomStoreTest, MultiEntityDeduplication) {
+    AtomStore store;
     EntityId user1 = create_entity(1);
     EntityId user2 = create_entity(2);
 
     // Both entities append same value
-    auto atom1 = log.append(user1, "status", "active", Canonical);
-    auto atom2 = log.append(user2, "status", "active", Canonical);
+    auto atom1 = store.append(user1, "status", "active", Canonical);
+    auto atom2 = store.append(user2, "status", "active", Canonical);
 
     // Content deduplicated
     EXPECT_EQ(atom1.atom_id(), atom2.atom_id());
@@ -352,14 +352,14 @@ TEST(AtomLogTest, MultiEntityDeduplication) {
 }
 
 TEST(ProjectionEngineTest, RebuildWithSharedAtoms) {
-    AtomLog log;
+    AtomStore store;
     ProjectionEngine engine(log);
 
     EntityId user1 = create_entity(1);
     EntityId user2 = create_entity(2);
 
-    log.append(user1, "status", "active", Canonical);
-    log.append(user2, "status", "active", Canonical);
+    store.append(user1, "status", "active", Canonical);
+    store.append(user2, "status", "active", Canonical);
 
     auto node1 = engine.rebuild(user1);
     auto node2 = engine.rebuild(user2);
@@ -369,13 +369,13 @@ TEST(ProjectionEngineTest, RebuildWithSharedAtoms) {
     EXPECT_EQ(node2.history().size(), 1);  // BUG FIX: was 0 before
 }
 
-TEST(AtomLogTest, ReferenceCountingGC) {
-    AtomLog log;
+TEST(AtomStoreTest, ReferenceCountingGC) {
+    AtomStore store;
     EntityId user1 = create_entity(1);
     EntityId user2 = create_entity(2);
 
-    auto atom = log.append(user1, "status", "active", Canonical);
-    log.append(user2, "status", "active", Canonical);
+    auto atom = store.append(user1, "status", "active", Canonical);
+    store.append(user2, "status", "active", Canonical);
 
     // Refcount should be 2
     EXPECT_EQ(log.get_refcount(atom.atom_id()), 2);
@@ -409,7 +409,7 @@ TEST(AtomLogTest, ReferenceCountingGC) {
 
 ```cpp
 void BenchmarkRebuildPerformance() {
-    AtomLog log;
+    AtomStore store;
     const size_t NUM_ENTITIES = 10000;
     const size_t ATOMS_PER_ENTITY = 100;
 
@@ -419,7 +419,7 @@ void BenchmarkRebuildPerformance() {
         for (size_t j = 0; j < ATOMS_PER_ENTITY; ++j) {
             // 80% chance of shared value
             string value = (rand() % 100 < 80) ? "shared_value" : unique_value();
-            log.append(entity, "tag", value, Canonical);
+            store.append(entity, "tag", value, Canonical);
         }
     }
 

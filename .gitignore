@@ -2,3 +2,4 @@ src/build/
 build/
 src/tpc-data/
 .cache/
+.opencode/

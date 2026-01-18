@@ -1,4 +1,4 @@
-#include "../core/atom_log.h"
+#include "../core/atom_store.h"
 #include "../core/projection_engine.h"
 #include "../types/hash_utils.h"
 #include <iostream>
@@ -9,7 +9,7 @@ using namespace gtaf;
 int main() {
     std::cout << "=== GTAF Content-Addressed Storage Demo ===\n\n";
 
-    core::AtomLog log;
+    core::AtomStore store;
 
     // Create EntityIds
     types::EntityId user1{};
@@ -31,12 +31,12 @@ int main() {
     std::cout << "--- Test 1: Canonical Atoms (Deduplicated) ---\n";
 
     // Append canonical atoms (default classification)
-    auto atom1 = log.append(user1, "user.status", std::string("active"), types::AtomType::Canonical);
+    auto atom1 = store.append(user1, "user.status", std::string("active"), types::AtomType::Canonical);
     std::cout << "Created atom1: user.status = 'active'\n";
     std::cout << "  AtomId: " << types::atom_id_to_hex(atom1.atom_id()) << "\n";
 
     // Append same value to different user - should reuse the atom!
-    auto atom2 = log.append(user2, "user.status", std::string("active"), types::AtomType::Canonical);
+    auto atom2 = store.append(user2, "user.status", std::string("active"), types::AtomType::Canonical);
     std::cout << "Created atom2: user.status = 'active' (different user)\n";
     std::cout << "  AtomId: " << types::atom_id_to_hex(atom2.atom_id()) << "\n";
 
@@ -47,7 +47,7 @@ int main() {
     }
 
     // Different value - should create new atom
-    auto atom3 = log.append(user1, "user.status", std::string("inactive"), types::AtomType::Canonical);
+    auto atom3 = store.append(user1, "user.status", std::string("inactive"), types::AtomType::Canonical);
     std::cout << "Created atom3: user.status = 'inactive'\n";
     std::cout << "  AtomId: " << types::atom_id_to_hex(atom3.atom_id()) << "\n";
     std::cout << "  ✓ Different value = different hash\n\n";
@@ -55,8 +55,8 @@ int main() {
     std::cout << "--- Test 2: Temporal Atoms (NOT Deduplicated) ---\n";
 
     // Temporal atoms use sequential IDs
-    auto temp1 = log.append(sensor, "temperature", 23.5, types::AtomType::Temporal);
-    auto temp2 = log.append(sensor, "temperature", 23.5, types::AtomType::Temporal);
+    auto temp1 = store.append(sensor, "temperature", 23.5, types::AtomType::Temporal);
+    auto temp2 = store.append(sensor, "temperature", 23.5, types::AtomType::Temporal);
 
     std::cout << "Created temp1: temperature = 23.5\n";
     std::cout << "  AtomId: " << types::atom_id_to_hex(temp1.atom_id()) << "\n";
@@ -76,14 +76,14 @@ int main() {
     std::cout << "Appending 1500 temperature readings...\n";
     for (int i = 0; i < 1500; ++i) {
         double temp = 20.0 + (i % 10) * 0.5;  // Temperature varies between 20.0-24.5
-        log.append(sensor, "sensor.temperature", temp, types::AtomType::Temporal);
+        store.append(sensor, "sensor.temperature", temp, types::AtomType::Temporal);
     }
     std::cout << "  ✓ Chunk should have been sealed at 1000 values\n";
     std::cout << "  ✓ Second chunk should have 500 values\n";
 
     // Query all temporal data
     std::cout << "\nQuerying all temporal data...\n";
-    auto all_temps = log.query_temporal_all(sensor, "sensor.temperature");
+    auto all_temps = store.query_temporal_all(sensor, "sensor.temperature");
     std::cout << "  Retrieved " << all_temps.total_count << " temperature readings\n";
 
     if (all_temps.total_count == 1500) {
@@ -104,11 +104,11 @@ int main() {
 
     std::cout << "--- Test 3: Mutable Atoms (Counters with Delta Logging) ---\n";
 
-    auto counter1 = log.append(user1, "login_count", static_cast<int64_t>(1), types::AtomType::Mutable);
+    auto counter1 = store.append(user1, "login_count", static_cast<int64_t>(1), types::AtomType::Mutable);
     std::cout << "Created counter1: login_count = 1\n";
     std::cout << "  AtomId: " << types::atom_id_to_hex(counter1.atom_id()) << "\n";
 
-    auto counter2 = log.append(user1, "login_count", static_cast<int64_t>(2), types::AtomType::Mutable);
+    auto counter2 = store.append(user1, "login_count", static_cast<int64_t>(2), types::AtomType::Mutable);
     std::cout << "Updated to counter2: login_count = 2\n";
     std::cout << "  AtomId: " << types::atom_id_to_hex(counter2.atom_id()) << "\n";
 
@@ -119,7 +119,7 @@ int main() {
     // Trigger snapshot by exceeding delta threshold (10 deltas)
     std::cout << "\nAppending 10 more mutations to trigger snapshot...\n";
     for (int i = 3; i <= 12; ++i) {
-        log.append(user1, "login_count", static_cast<int64_t>(i), types::AtomType::Mutable);
+        store.append(user1, "login_count", static_cast<int64_t>(i), types::AtomType::Mutable);
     }
     std::cout << "  ✓ Snapshot should have been emitted at 10 deltas\n";
     std::cout << "  ✓ Delta history cleared after snapshot\n\n";
@@ -127,11 +127,11 @@ int main() {
     std::cout << "--- Test 4: Edge Values ---\n";
 
     types::EdgeValue edge{recipe, "likes"};
-    log.append(user1, "edge.likes", edge, types::AtomType::Canonical);
+    store.append(user1, "edge.likes", edge, types::AtomType::Canonical);
     std::cout << "Created edge: user1 -> likes -> recipe\n\n";
 
     std::cout << "--- Statistics ---\n";
-    auto stats = log.get_stats();
+    auto stats = store.get_stats();
     std::cout << "Total atoms in log: " << stats.total_atoms << "\n";
     std::cout << "Canonical atoms created: " << stats.canonical_atoms << "\n";
     std::cout << "Unique canonical atoms: " << stats.unique_canonical_atoms << "\n";
@@ -143,7 +143,7 @@ int main() {
               << "%\n\n";
 
     std::cout << "--- Projection Rebuild & Value Queries ---\n";
-    core::ProjectionEngine projector(log);
+    core::ProjectionEngine projector(store);
 
     auto user1_node = projector.rebuild(user1);
     auto user2_node = projector.rebuild(user2);
@@ -194,29 +194,29 @@ int main() {
     std::string filepath = "gtaf_demo.dat";
     std::cout << "Saving atom log to '" << filepath << "'...\n";
 
-    if (log.save(filepath)) {
-        std::cout << "  ✓ Successfully saved " << log.all().size() << " atoms\n";
+    if (store.save(filepath)) {
+        std::cout << "  ✓ Successfully saved " << store.all().size() << " atoms\n";
     } else {
         std::cout << "  ✗ Failed to save\n";
         return 1;
     }
 
     // Create a new log and load from disk
-    core::AtomLog loaded_log;
+    core::AtomStore loaded_store;
     std::cout << "\nLoading atom log from '" << filepath << "'...\n";
 
-    if (loaded_log.load(filepath)) {
-        std::cout << "  ✓ Successfully loaded " << loaded_log.all().size() << " atoms\n";
+    if (loaded_store.load(filepath)) {
+        std::cout << "  ✓ Successfully loaded " << loaded_store.all().size() << " atoms\n";
 
         // Verify statistics match
-        auto loaded_stats = loaded_log.get_stats();
+        auto loaded_stats = loaded_store.get_stats();
         std::cout << "\nLoaded Statistics:\n";
         std::cout << "  Total atoms: " << loaded_stats.total_atoms << "\n";
         std::cout << "  Canonical atoms: " << loaded_stats.canonical_atoms << "\n";
         std::cout << "  Unique canonical: " << loaded_stats.unique_canonical_atoms << "\n";
 
         // Rebuild projection from loaded log
-        core::ProjectionEngine loaded_projector(loaded_log);
+        core::ProjectionEngine loaded_projector(loaded_store);
         auto loaded_user1 = loaded_projector.rebuild(user1);
 
         // Verify data integrity
@@ -256,7 +256,7 @@ int main() {
         }
 
         // Test temporal query on loaded data
-        auto loaded_temps = loaded_log.query_temporal_all(sensor, "sensor.temperature");
+        auto loaded_temps = loaded_store.query_temporal_all(sensor, "sensor.temperature");
         std::cout << "  Loaded temporal data: " << loaded_temps.total_count << " readings\n";
         if (loaded_temps.total_count == 1500) {
             std::cout << "  ✓ Temporal data preserved!\n";

@@ -2,7 +2,7 @@
 
 #include "../types/types.h"
 #include "projection_engine.h"
-#include "atom_log.h"
+#include "atom_store.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -25,9 +25,9 @@ public:
     explicit QueryIndex(const ProjectionEngine& projector);
 
     /**
-     * @brief Construct a query index from an atom log (direct access, faster)
+     * @brief Construct a query index from an atom store (direct access, faster)
      */
-    explicit QueryIndex(const AtomLog& log);
+    explicit QueryIndex(const AtomStore& store);
 
     /**
      * @brief Build an index for a specific property tag
@@ -104,7 +104,7 @@ public:
 
 private:
     /**
-     * @brief Build indexes by directly scanning atom log (bypasses Node reconstruction)
+     * @brief Build indexes by directly scanning atom store (bypasses Node reconstruction)
      *
      * Much faster than going through ProjectionEngine because:
      * - No Node object allocation
@@ -115,7 +115,7 @@ private:
     size_t build_indexes_direct(const std::vector<std::string>& tags);
 
     const ProjectionEngine* m_projector = nullptr;
-    const AtomLog* m_log = nullptr;
+    const AtomStore* m_store = nullptr;
 
     // Index: tag -> (entity_id -> string_value)
     std::unordered_map<std::string, std::unordered_map<types::EntityId, std::string, EntityIdHash>> m_string_indexes;

@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../core/atom_log.h"
+#include "../core/atom_store.h"
 #include "../types/hash_utils.h"
 #include <algorithm>
 
@@ -14,8 +14,8 @@ types::EntityId make_entity(uint8_t id) {
     return entity;
 }
 
-TEST(AtomLog, CanonicalDeduplication) {
-    core::AtomLog log;
+TEST(AtomStore, CanonicalDeduplication) {
+    core::AtomStore log;
     auto entity1 = make_entity(1);
     auto entity2 = make_entity(2);
 
@@ -52,8 +52,8 @@ TEST(AtomLog, CanonicalDeduplication) {
     ASSERT_EQ(stats.deduplicated_hits, 1);
 }
 
-TEST(AtomLog, TemporalNoDeduplication) {
-    core::AtomLog log;
+TEST(AtomStore, TemporalNoDeduplication) {
+    core::AtomStore log;
     auto entity = make_entity(1);
 
     // Append same value twice as temporal
@@ -66,8 +66,8 @@ TEST(AtomLog, TemporalNoDeduplication) {
     ASSERT_EQ(log.all().size(), 2);
 }
 
-TEST(AtomLog, TemporalChunking) {
-    core::AtomLog log;
+TEST(AtomStore, TemporalChunking) {
+    core::AtomStore log;
     auto entity = make_entity(1);
 
     // Append 1500 temporal values to trigger chunking
@@ -89,8 +89,8 @@ TEST(AtomLog, TemporalChunking) {
     ASSERT_EQ(std::get<double>(result.values[1499]), 1519.0);
 }
 
-TEST(AtomLog, MutableStateSameId) {
-    core::AtomLog log;
+TEST(AtomStore, MutableStateSameId) {
+    core::AtomStore log;
     auto entity = make_entity(1);
 
     // Mutable atoms should keep same ID
@@ -102,8 +102,8 @@ TEST(AtomLog, MutableStateSameId) {
     ASSERT_EQ(atom2.atom_id(), atom3.atom_id());
 }
 
-TEST(AtomLog, MutableSnapshotTrigger) {
-    core::AtomLog log;
+TEST(AtomStore, MutableSnapshotTrigger) {
+    core::AtomStore log;
     auto entity = make_entity(1);
 
     size_t initial_count = log.all().size();
@@ -119,8 +119,8 @@ TEST(AtomLog, MutableSnapshotTrigger) {
     ASSERT_TRUE(log.all().size() >= expected_min);
 }
 
-TEST(AtomLog, EdgeValues) {
-    core::AtomLog log;
+TEST(AtomStore, EdgeValues) {
+    core::AtomStore log;
     auto entity1 = make_entity(1);
     auto entity2 = make_entity(2);
 
@@ -133,8 +133,8 @@ TEST(AtomLog, EdgeValues) {
     ASSERT_EQ(edge_value.relation, "follows");
 }
 
-TEST(AtomLog, MultipleValueTypes) {
-    core::AtomLog log;
+TEST(AtomStore, MultipleValueTypes) {
+    core::AtomStore log;
     auto entity = make_entity(1);
 
     log.append(entity, "name", std::string("Alice"), types::AtomType::Canonical);
@@ -148,8 +148,8 @@ TEST(AtomLog, MultipleValueTypes) {
     ASSERT_EQ(log.all().size(), 5);
 }
 
-TEST(AtomLog, LsnMonotonicity) {
-    core::AtomLog log;
+TEST(AtomStore, LsnMonotonicity) {
+    core::AtomStore log;
     auto entity = make_entity(1);
 
     log.append(entity, "value", static_cast<int64_t>(1), types::AtomType::Canonical);
@@ -166,8 +166,8 @@ TEST(AtomLog, LsnMonotonicity) {
     ASSERT_TRUE((*refs)[1].lsn.value < (*refs)[2].lsn.value);
 }
 
-TEST(AtomLog, TimestampMonotonicity) {
-    core::AtomLog log;
+TEST(AtomStore, TimestampMonotonicity) {
+    core::AtomStore log;
     auto entity = make_entity(1);
 
     auto atom1 = log.append(entity, "value", static_cast<int64_t>(1), types::AtomType::Canonical);
