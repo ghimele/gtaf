@@ -88,6 +88,7 @@ These trade-offs are considered acceptable given the architectural and longevity
 
 ## Resulting Structure (Informative)
 
+```
 docs/
 ├── adr/            # Why decisions were made (immutable)
 ├── architecture/   # System structure (current state)
@@ -96,7 +97,7 @@ docs/
 ├── operations/     # Build, deploy, operate
 ├── STYLE.md        # Coding and architectural rules
 └── README.md       # Documentation governance
-
+```
 ---
 
 ## Related
