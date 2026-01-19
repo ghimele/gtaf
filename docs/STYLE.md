@@ -1,5 +1,10 @@
 # GTAF C++ Coding Style
 
+**Status:** Stable
+**Last updated:** 2026-01-19
+**Owner:** Core Team
+**Related ADRs:** ADR-005
+
 ## Member Variables
 
 - All private data members MUST use the `m_` prefix

@@ -1,0 +1,28 @@
+name: Documentation Checks
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - "CONTRIBUTING.md"
+      - "scripts/docs-check.sh"
+      - ".markdownlint.json"
+
+jobs:
+  docs-validation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node (for markdownlint)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run documentation checks
+        run: |
+          ./scripts/docs-check.sh origin/${{ github.base_ref }}

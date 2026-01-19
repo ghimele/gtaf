@@ -4,10 +4,14 @@ run-name: GTAF 0.0.1.${{ github.run_number }}
 
 on:
   push:
-    branches: [ "main"]
-  pull_request:
-    branches: [ "main"]
-
+    branches: [ "main" ]
+    paths:
+      - "**.cpp"
+      - "**.h"
+      - "CMakeLists.txt"
+      - ".github/workflows/build.yml"
+      - ".github/workflows/build-linux.yml"
+      - ".github/workflows/build-windows.yml"
 
 jobs:
 
