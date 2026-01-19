@@ -10,7 +10,8 @@ Proposed
 
 ## Context
 
-GTAF (Graph Transactional Atom Framework) implements a content-addressable storage system where canonical atoms are deduplicated based on their content hash (derived from type tag and value). The current implementation has a critical bug: when multiple entities reference the same canonical value, only the first entity maintains an association with the deduplicated atom.
+GTAF (Graph Transactional Atom Framework) implements a content-addressable storage system where canonical atoms are deduplicated based on their content hash (derived from type tag and value).
+The current implementation has a critical bug: when multiple entities reference the same canonical value, only the first entity maintains an association with the deduplicated atom.
 
 ### The Problem
 
@@ -68,27 +69,29 @@ We will implement **Option C: Separate Entity-Atom Reference Index**, which comp
 
 ### Architecture
 
-```
-┌─────────────────────────────────────┐
-│  CONTENT LAYER (Deduplicated)       │
-│  AtomId → Atom (tag, value, type)   │
-│  NO entity_id - pure content         │
-└─────────────────────────────────────┘
-                 ↑
-                 │ referenced by
-                 │
-┌─────────────────────────────────────┐
-│  REFERENCE LAYER (Entity Index)     │
-│  EntityId → [(AtomId, LSN)]          │
-│  Tracks associations                 │
-└─────────────────────────────────────┘
-                 ↑
-                 │
-┌─────────────────────────────────────┐
-│  GARBAGE COLLECTION LAYER            │
-│  AtomId → RefCount                   │
-│  Enables cleanup                     │
-└─────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph GC["GARBAGE COLLECTION LAYER"]
+        GC1["AtomId → RefCount"]
+        GC2["Enables cleanup"]
+    end
+
+    subgraph Reference["REFERENCE LAYER (Entity Index)"]
+        R1["EntityId → [(AtomId, LSN)]"]
+        R2["Tracks associations"]
+    end
+
+    subgraph Content["CONTENT LAYER (Deduplicated)"]
+        C1["AtomId → Atom (tag, value, type)"]
+        C2["NO entity_id - pure content"]
+    end
+
+    GC -->|"manages"| Reference
+    Reference -->|"referenced by"| Content
+
+    style Content fill:#e8f5e9,stroke:#2e7d32
+    style Reference fill:#fff3e0,stroke:#f57c00
+    style GC fill:#fce4ec,stroke:#c2185b
 ```
 
 ### Core Changes
@@ -185,18 +188,21 @@ Node ProjectionEngine::rebuild(EntityId entity) const {
 ### Why Option C Over Alternatives?
 
 **Option A: Store Multiple entity_ids in Atom**
+
 - ❌ Breaks immutability of Atom
 - ❌ Complicates LSN tracking (which LSN per entity?)
 - ❌ Dynamic vector resizing impacts performance
 - ❌ Violates separation of concerns
 
 **Option B: Duplicate Atom Entries Per Entity**
+
 - ❌ 2x memory usage for shared canonical data
 - ❌ Doesn't scale with high deduplication rates
 - ❌ Storage bloat in persistence layer
 - ❌ Patches bug without fixing architecture
 
 **Option C: Separate Reference Index (CHOSEN)**
+
 - ✅ Industry-proven pattern (Git, Perkeep, enterprise systems)
 - ✅ True content deduplication (50%+ memory savings)
 - ✅ O(atoms_per_entity) queries vs O(all_atoms) scans
@@ -209,21 +215,25 @@ Node ProjectionEngine::rebuild(EntityId entity) const {
 This architecture is used by all major content-addressable systems:
 
 **1. Git**
+
 - Blobs store content (no metadata about references)
 - Trees reference blobs by hash
 - Complete separation enables efficient storage and transfer
 
 **2. Perkeep (formerly Camlistore)**
+
 - Blobs are immutable content-addressed objects
 - Permanodes are mutable entities with claims
 - Claims track which permanodes reference which blobs
 
 **3. Enterprise Deduplication Systems**
+
 - Content index: `content_hash → storage_location`
 - Reference table: `(object_id, content_hash) → metadata`
 - Reference counting enables garbage collection
 
 **4. Modern Key-Value Stores (DedupKV 2025)**
+
 - Separate metadata management for entity-content relationships
 - Inline deduplication with reference tracking
 - Optimized chunk-lookup structures
@@ -232,7 +242,7 @@ This architecture is used by all major content-addressable systems:
 
 **Memory Overhead:**
 
-```
+```text
 Current (buggy Option B):
   Per atom: sizeof(Atom) ≈ 128 bytes
   Total: num_entities × avg_atoms × 128 bytes
@@ -250,7 +260,7 @@ Example: 1M entities, 100 atoms each, 80% deduplication
 
 **Query Performance:**
 
-```
+```text
 Current rebuild(entity):
   Time: O(total_atoms) - linear scan
   Space: O(1)
@@ -291,35 +301,41 @@ If entities reference <1% of atoms: ~100x speedup
 ## Implementation Plan
 
 ### Phase 1: Core Data Structure Changes (Week 1)
+
 - Remove `entity_id` from Atom class
 - Add reference tracking structures to AtomStore
 - Update `append()` logic
 - Add query methods: `get_entity_atoms()`, `get_atom()`
 
 ### Phase 2: Update Query Mechanisms (Week 1)
+
 - Update `ProjectionEngine::rebuild()`
 - Update temporal query methods
 - Update statistics tracking
 
 ### Phase 3: Persistence & Migration (Week 2)
+
 - Design new serialization format (V2)
 - Implement backward-compatible loading (V1 → V2)
 - Create migration tool for offline conversion
 - Update save/load methods
 
 ### Phase 4: Testing & Validation (Week 2)
+
 - Unit tests for multi-entity deduplication
 - Integration tests for rebuild correctness
 - Performance benchmarks (memory, query speed)
 - Persistence round-trip tests
 
 ### Phase 5: Garbage Collection (Week 3, Optional)
+
 - Implement `remove_entity()` with refcount decrement
 - Implement `collect_garbage()` for zero-refcount atoms
 - Add periodic GC scheduling
 - GC performance tuning
 
 ### Phase 6: Documentation & Release (Week 3)
+
 - Update architecture documentation
 - Write migration guide for users
 - Create example code for new API
@@ -450,6 +466,7 @@ void BenchmarkRebuildPerformance() {
 5. [Distributed Data Deduplication Survey (ACM)](https://dl.acm.org/doi/10.1145/3735508)
 
 For complete analysis and additional references, see:
+
 - [Entity Deduplication Architecture Document](../entity-deduplication-architecture.md)
 
 ## Notes

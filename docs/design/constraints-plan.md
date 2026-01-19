@@ -20,11 +20,13 @@ and architectural integrity across all components and over time.
 ## 2. Scope
 
 ### In Scope
+
 - Global architectural invariants
 - Component-level constraints
 - Enforcement boundaries and expectations
 
 ### Out of Scope
+
 - Rationale for constraints (see ADRs)
 - Implementation-specific enforcement mechanisms
 - Testing strategies and validation tooling
@@ -36,11 +38,13 @@ and architectural integrity across all components and over time.
 GTAF is designed as a long-lived, append-only, immutable system.
 
 In such systems:
+
 - Errors compound over time
 - Silent violations are difficult to correct
 - Historical correctness is a first-class requirement
 
 Explicit constraints are therefore required to:
+
 - Prevent accidental architectural drift
 - Enable safe evolution
 - Make violations immediately visible
@@ -74,6 +78,7 @@ Atoms must satisfy the following constraints:
 - Atom normalization is deterministic
 
 Atoms must not:
+
 - Track references
 - Encode behavior
 - Contain mutable fields
@@ -90,6 +95,7 @@ Entities must satisfy the following constraints:
 - Entity state is reconstructible from references
 
 Entities must not:
+
 - Mutate atoms
 - Implicitly assume atom uniqueness
 - Encode deduplication logic internally
@@ -106,6 +112,7 @@ The entity–atom reference index must satisfy:
 - Deterministic iteration order
 
 The reference index must not:
+
 - Collapse or remove historical references
 - Store derived or implicit relationships
 
@@ -121,6 +128,7 @@ The write pipeline must enforce:
 - No partial persistence
 
 The write pipeline must not:
+
 - Expose intermediate state
 - Rewrite persisted data
 - Perform speculative mutation
@@ -136,6 +144,7 @@ The read pipeline must enforce:
 - Deterministic reconstruction
 
 The read pipeline must not:
+
 - Observe partial writes
 - Block the writer
 - Mutate persisted state
@@ -152,6 +161,7 @@ System evolution must satisfy:
 - Behavioral changes are explicit
 
 Any change violating existing invariants requires:
+
 - A new ADR
 - Explicit migration strategy
 
@@ -173,11 +183,13 @@ These principles are non-negotiable.
 ## 6. Trade-offs & Limitations
 
 ### Trade-offs
+
 - Increased upfront complexity
 - Additional indirection and metadata
 - Reduced flexibility for ad-hoc changes
 
 ### Limitations
+
 - Certain optimizations are intentionally disallowed
 - Some invariants restrict future design space
 - Constraint enforcement requires discipline

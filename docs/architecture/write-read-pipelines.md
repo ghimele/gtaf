@@ -20,11 +20,13 @@ observed consistently by readers.
 ## 2. Scope
 
 ### In Scope
+
 - Write pipeline stages and responsibilities
 - Read pipeline stages and snapshot semantics
 - Interaction with append-only storage and reference indexes
 
 ### Out of Scope
+
 - Rationale for architectural choices (see ADRs)
 - Low-level storage formats
 - Query optimization strategies
@@ -35,6 +37,7 @@ observed consistently by readers.
 ## 3. Context
 
 GTAF is built on the following core principles:
+
 - Append-only persistence
 - Immutable data structures
 - Single-writer, multi-reader access model
@@ -53,6 +56,7 @@ The write pipeline is responsible for transforming incoming data into durable,
 append-only records.
 
 Characteristics:
+
 - Single writer
 - Deterministic ordering
 - No in-place mutation
@@ -60,6 +64,7 @@ Characteristics:
 ### 4.1.1 Input Normalization
 
 Incoming data is:
+
 - Validated
 - Normalized
 - Transformed into candidate atoms
@@ -71,6 +76,7 @@ No persistence occurs at this stage.
 ### 4.1.2 Atom Resolution
 
 For each candidate atom:
+
 - Atom identity is computed
 - Existing atoms are detected
 - New atoms are appended only if necessary
@@ -82,6 +88,7 @@ Atom resolution does not mutate existing atoms.
 ### 4.1.3 Reference Creation
 
 For each resolved atom:
+
 - An explicit entity–atom reference is created
 - The reference is appended to the reference index
 
@@ -92,6 +99,7 @@ This step guarantees that deduplication does not remove associations.
 ### 4.1.4 Commit Boundary
 
 A write operation is considered complete only after:
+
 - All atoms are resolved
 - All references are appended
 - All append operations are durably committed
@@ -106,6 +114,7 @@ The read pipeline is responsible for reconstructing consistent views of the syst
 from append-only data.
 
 Characteristics:
+
 - Multi-reader
 - Snapshot-based
 - Non-blocking with respect to writers
@@ -115,6 +124,7 @@ Characteristics:
 ### 4.2.1 Snapshot Acquisition
 
 Readers operate on explicit snapshots defined by:
+
 - Atom store high-water mark
 - Reference index high-water mark
 
@@ -125,6 +135,7 @@ A snapshot represents a stable, immutable view.
 ### 4.2.2 Data Reconstruction
 
 Within a snapshot:
+
 - Entity–atom references are resolved
 - Atoms are materialized as needed
 - No write-side state is consulted
@@ -136,6 +147,7 @@ Reads are fully deterministic with respect to the snapshot.
 ### 4.2.3 Isolation Guarantees
 
 Readers:
+
 - Never observe partial writes
 - Never block the writer
 - Never require locks on persisted data
@@ -153,6 +165,7 @@ Write and read pipelines are strictly separated:
 - No shared mutable state exists between pipelines
 
 This separation is enforced by:
+
 - Append-only persistence
 - Snapshot boundaries
 - Single-writer constraint
@@ -177,11 +190,13 @@ Violating these invariants breaks snapshot consistency.
 ## 6. Trade-offs & Limitations
 
 ### Trade-offs
+
 - Snapshot management adds complexity
 - Read paths involve indirection through references
 - Some real-time visibility is delayed by commit boundaries
 
 ### Limitations
+
 - Single-writer limits horizontal write scalability
 - Snapshot size grows monotonically
 - Readers must handle historical data explicitly

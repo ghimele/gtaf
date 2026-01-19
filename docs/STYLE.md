@@ -8,7 +8,7 @@
 
 - Types: PascalCase
 - Functions: snake_case
-- Files: snake_case.hpp / .cpp
+- Files: snake_case.h / .cpp
 
 ## Ownership
 

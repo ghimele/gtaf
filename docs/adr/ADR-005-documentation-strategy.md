@@ -8,6 +8,7 @@
 ## Context
 
 As the GTAF project evolves, the amount and variety of documentation has increased, including:
+
 - Architecture Decision Records (ADRs)
 - Architectural descriptions
 - Internal design documents
@@ -15,12 +16,14 @@ As the GTAF project evolves, the amount and variety of documentation has increas
 - Operational and contributor guidance
 
 Previously, documentation existed in a flat structure with mixed intent, leading to:
+
 - Blurred boundaries between decisions and descriptions
 - Risk of duplication between ADRs and technical documents
 - Inconsistent structure and discoverability
 - Difficulty enforcing documentation quality and governance
 
 Given the long-term, architecture-driven nature of GTAF, documentation must be:
+
 - Auditable
 - Scalable
 - Consistent
@@ -88,7 +91,7 @@ These trade-offs are considered acceptable given the architectural and longevity
 
 ## Resulting Structure (Informative)
 
-```
+```text
 docs/
 ├── adr/            # Why decisions were made (immutable)
 ├── architecture/   # System structure (current state)
@@ -98,6 +101,7 @@ docs/
 ├── STYLE.md        # Coding and architectural rules
 └── README.md       # Documentation governance
 ```
+
 ---
 
 ## Related

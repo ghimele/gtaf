@@ -23,9 +23,11 @@ GTAF is built on five non-negotiable principles:
 ## Core Concepts
 
 ### Node
+
 A **Node** represents identity (e.g. Customer, Recipe, Sensor).
 
 Nodes:
+
 - Have stable IDs
 - Do not store values directly
 - Reference values via properties
@@ -53,25 +55,31 @@ Properties:
 - Globally deduplicated
 
 #### 2. Temporal Atoms
+
 Used for high-frequency data:
+
 - IoT readings
 - Logs
 - Metrics
 - Time-series
 
 Properties:
+
 - Append-only
 - Chunked for sequential I/O
 - Not deduplicated per value
 - Immutable at chunk level
 
 #### 3. Mutable Atoms
+
 Used for:
+
 - Counters
 - Aggregates
 - Derived state
 
 Properties:
+
 - Controlled mutation
 - Delta-logged
 - Periodically snapshotted
@@ -81,17 +89,19 @@ Properties:
 ---
 
 ### Property
+
 A **Property** is a named pointer from a Node to an Atom.
 
 Node ── property ──▶ Atom
 
-
 ---
 
 ### Edge
+
 An **Edge** is an explicit relationship between Nodes.
 
 Edges are used for:
+
 - Graph traversal
 - Domain relationships
 - Structural modeling
@@ -101,12 +111,14 @@ Edges are used for:
 ## Architecture Overview
 
 ### Logical Model
+
 - Nodes
 - Atom classes
 - Edges
 - Version semantics
 
 ### Physical Model
+
 - Projection layers (row, column, graph neighborhood)
 - Storage engines optimized for locality
 - Append-only logs and compaction
@@ -130,7 +142,6 @@ FIND Customer WHERE status = "active"
 TRAVERSE Order FROM Customer:123
 VECTOR_SIMILAR("industrial equipment buyer") TOP 10
 
-
 ---
 
 ## Vector Search (Corrected Model)
@@ -149,12 +160,14 @@ This aligns GTAF with production vector systems (HNSW-based).
 ## What GTAF Is (and Is Not)
 
 **GTAF is:**
+
 - A universal typed data substrate
 - Schema-optional but type-safe
 - History-preserving
 - AI-ready by design
 
 **GTAF is not:**
+
 - A naïve immutable store
 - A pure content-addressed filesystem
 - A replacement for all physical databases
@@ -183,6 +196,7 @@ This aligns GTAF with production vector systems (HNSW-based).
 🚧 **Design-first, early implementation phase**
 
 Current focus:
+
 - Finalizing core spec
 - Formalizing atom taxonomy
 - Defining write/read pipelines

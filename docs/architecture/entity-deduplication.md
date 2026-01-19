@@ -20,11 +20,13 @@ multiple entities to reference them without loss of association or correctness.
 ## 2. Scope
 
 ### In Scope
+
 - Deduplication of atom values across entities
 - Relationship between entities, atoms, and reference indexes
 - Structural guarantees required to preserve correctness
 
 ### Out of Scope
+
 - Rationale for choosing deduplication strategies (see ADRs)
 - Performance optimizations and indexing internals
 - Query execution details
@@ -34,6 +36,7 @@ multiple entities to reference them without loss of association or correctness.
 ## 3. Context
 
 GTAF models information using:
+
 - **Entities** as logical aggregations
 - **Atoms** as immutable, typed values
 - **Append-only persistence** as a hard invariant
@@ -41,6 +44,7 @@ GTAF models information using:
 Multiple entities may produce atoms with identical semantic value
 (e.g. same tag + value). To avoid duplication while preserving correctness,
 the system must:
+
 - Reuse identical atoms
 - Preserve all entity-to-atom relationships
 - Avoid hidden or implicit coupling
@@ -53,7 +57,7 @@ the system must:
 
 Atoms are uniquely identified by their semantic content:
 
-```
+```text
 (tag, normalized_value, type)
 ```
 
@@ -67,6 +71,7 @@ Atoms themselves are immutable and unaware of which entities reference them.
 Entities do **not** own atoms.
 
 Instead:
+
 - Entities reference atoms
 - References are explicit
 - References are append-only
@@ -80,13 +85,14 @@ This prevents accidental loss of relationships when deduplication occurs.
 A dedicated **Entity–Atom Reference Index** is maintained as a first-class structure.
 
 Properties:
+
 - Append-only
 - Explicit entity → atom associations
 - No back-references inside atoms
 
 Each new association appends a new record:
 
-```
+```text
 (entity_id, atom_id)
 ```
 
@@ -111,11 +117,13 @@ This ensures that deduplication never removes information.
 ### 4.5 Snapshot and Read Semantics
 
 Because both atoms and references are append-only:
+
 - Historical snapshots remain consistent
 - Readers observe a stable view
 - Deduplication does not affect past reads
 
 Snapshots are defined over:
+
 - Atom store state
 - Reference index state
 
@@ -139,11 +147,13 @@ Violating any of these breaks historical correctness.
 ## 6. Trade-offs & Limitations
 
 ### Trade-offs
+
 - Additional storage for reference indexes
 - Slightly more complex read paths
 - Indirection between entities and atoms
 
 ### Limitations
+
 - Reference growth is unbounded by design
 - Cleanup or compaction must be modeled explicitly
 - Deduplication granularity is limited to atom identity rules
@@ -158,5 +168,3 @@ These trade-offs are accepted to preserve auditability and correctness.
 - ADR-004: Separate Entity–Atom Reference Index
 - docs/design/atom-taxonomy.md
 - docs/design/constraints-plan.md
-
-

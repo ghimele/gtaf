@@ -72,6 +72,7 @@ without breaking the core architecture.
 ## Alternatives Considered
 
 ### Multi-Writer with Locking
+
 **Rejected**
 
 Pros:
@@ -165,9 +166,6 @@ These limitations are accepted for the initial and mid-term scope of GTAF.
 ## Related Decisions
 
 - ADR-001: Append-Only Log as Persistence Foundation
-- ADR-003: Atom Representation (Struct + Enum, No Inheritance) *(planned)*
-- ADR-004: Snapshot Strategy *(planned)*
-- ADR-005: Pipeline Execution Semantics *(planned)*
 
 ## References
 

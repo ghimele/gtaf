@@ -17,23 +17,28 @@ This directory contains all project documentation and follows a strict
 ## Document Types
 
 ### Architecture Decision Records (docs/adr/)
+
 - Capture **why** a decision was made
 - Immutable once accepted
 - Superseded via new ADRs
 
 ### Architecture (docs/architecture/)
+
 - Describe the current system structure
 - Reference ADRs for rationale
 
 ### Design (docs/design/)
+
 - Internal design and implementation details
 - May evolve over time
 
 ### Specifications (docs/specs/)
+
 - Define contracts and expected behavior
 - Must be precise and testable
 
 ### Operations (docs/operations/)
+
 - Build, deployment, and runtime procedures
 
 ---
@@ -41,6 +46,7 @@ This directory contains all project documentation and follows a strict
 ## Required Document Structure
 
 All non-ADR documents must include:
+
 - Status
 - Last updated date
 - Owner
