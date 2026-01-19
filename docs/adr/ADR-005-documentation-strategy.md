@@ -1,9 +1,12 @@
 # ADR-005: Documentation Strategy
 
-**Status:** Accepted  
-**Date:** 2026-01-18  
+## Status
 
----
+Accepted
+
+## Date
+
+2026-01-18
 
 ## Context
 

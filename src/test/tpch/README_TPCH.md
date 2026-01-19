@@ -37,6 +37,7 @@ make
 ```
 
 **Scale Factors**:
+
 - SF1: 1 GB (~6 million rows in lineitem)
 - SF10: 10 GB (~60 million rows) - Good for stress testing
 - SF100: 100 GB (~600 million rows) - Large scale testing
@@ -94,7 +95,8 @@ cmake --build build
 ### Scale Factor 1 (SF1)
 
 | Metric | Expected Value |
-|--------|---------------|
+|--------|----------------|
+
 | **Dataset Size** | ~1 GB raw, ~800 MB imported |
 | **Total Rows** | 8.66 million |
 | **Import Time** | 60-120 seconds |
@@ -106,7 +108,8 @@ cmake --build build
 ### Scale Factor 10 (SF10)
 
 | Metric | Expected Value |
-|--------|---------------|
+|--------|----------------|
+
 | **Dataset Size** | ~10 GB raw, ~8 GB imported |
 | **Total Rows** | 86.6 million |
 | **Import Time** | 10-20 minutes |
@@ -117,7 +120,7 @@ cmake --build build
 
 ## TPC-H Schema
 
-```
+```text
 REGION (5 rows)
   ├─ NATION (25 rows)
       ├─ CUSTOMER (150K rows)
@@ -131,6 +134,7 @@ REGION (5 rows)
 ### Table Details
 
 **LINEITEM** (16 columns, 6M rows @ SF1):
+
 - `orderkey`, `partkey`, `suppkey`, `linenumber`
 - `quantity`, `extendedprice`, `discount`, `tax`
 - `returnflag`, `linestatus`
@@ -138,19 +142,23 @@ REGION (5 rows)
 - `shipinstruct`, `shipmode`, `comment`
 
 **ORDERS** (9 columns, 1.5M rows):
+
 - `orderkey`, `custkey`, `orderstatus`
 - `totalprice`, `orderdate`, `orderpriority`
 - `clerk`, `shippriority`, `comment`
 
 **CUSTOMER** (8 columns, 150K rows):
+
 - `custkey`, `name`, `address`, `nationkey`
 - `phone`, `acctbal`, `mktsegment`, `comment`
 
 **PART** (9 columns, 200K rows):
+
 - `partkey`, `name`, `mfgr`, `brand`
 - `type`, `size`, `container`, `retailprice`, `comment`
 
 **SUPPLIER** (7 columns, 10K rows):
+
 - `suppkey`, `name`, `address`, `nationkey`
 - `phone`, `acctbal`, `comment`
 
@@ -172,6 +180,7 @@ ORDER BY l_returnflag, l_linestatus;
 ```
 
 **GTAF equivalent**:
+
 ```cpp
 // Find lineitems with shipdate <= threshold
 auto matches = index.find_int_where("lineitem.shipdate", [](int64_t date) {
@@ -205,6 +214,7 @@ LIMIT 10;
 ```
 
 **GTAF equivalent**:
+
 ```cpp
 // Step 1: Find customers in BUILDING segment
 auto customers = index.find_equals("customer.mktsegment", "BUILDING");
@@ -217,20 +227,24 @@ auto customers = index.find_equals("customer.mktsegment", "BUILDING");
 ## GTAF Performance Features Tested
 
 ### 1. Entity Deduplication
+
 - TPC-H has many repeated values (same suppliers, regions, etc.)
 - GTAF's content-based deduplication should show 30-50% deduplication rate
 
 ### 2. Query Index Performance
+
 - Queries scan millions of rows
 - Indexes enable sub-second query times
 - Tests scalability of index system
 
 ### 3. Multi-Table Relationships
+
 - 8 related tables with foreign keys
 - Tests how GTAF handles related entities
 - Validates entity reference architecture
 
 ### 4. Temporal Data
+
 - Orders and shipments have dates
 - Tests GTAF's temporal chunk management
 - Validates time-series query patterns
@@ -238,18 +252,23 @@ auto customers = index.find_equals("customer.mktsegment", "BUILDING");
 ## Troubleshooting
 
 ### "Cannot open .tbl file"
+
 Make sure you specify the correct directory containing the .tbl files:
+
 ```bash
 ./build/gtaf_tpch_import /full/path/to/tpch-kit/dbgen
 ```
 
 ### Out of Memory during Import
+
 If importing SF10 or larger:
+
 1. Ensure you have enough RAM (SF10 needs ~40 GB during import)
 2. Consider processing in smaller chunks
 3. Use a machine with more memory
 
 ### Slow Query Performance
+
 1. Make sure indexes are built before querying
 2. Check memory usage - swapping will slow down queries
 3. Consider using a smaller scale factor for testing
@@ -264,6 +283,7 @@ You can compare GTAF's performance against other databases using the same TPC-H 
 4. **DuckDB**: Use DuckDB's TPC-H extension
 
 Compare:
+
 - Import time
 - Query time
 - Memory usage
