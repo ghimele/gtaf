@@ -165,8 +165,6 @@ These trade-offs are accepted in favor of performance, determinism, and simplici
 
 - ADR-001: Append-Only Log as Persistence Foundation
 - ADR-002: Single-Writer with Snapshot Readers Concurrency Model
-- ADR-004: Snapshot Strategy *(planned)*
-- ADR-005: Pipeline Execution Semantics *(planned)*
 
 ## References
 

@@ -20,11 +20,13 @@ how atoms are categorized, and how they are interpreted by the system.
 ## 2. Scope
 
 ### In Scope
+
 - Definition of atoms and their core properties
 - Atom classification and taxonomy
 - Semantic rules governing atom identity and usage
 
 ### Out of Scope
+
 - Rationale for atom representation choices (see ADR-003)
 - Persistence layout and storage encoding
 - Entity–atom reference mechanics
@@ -38,12 +40,14 @@ GTAF represents information using **atoms** as the smallest immutable units
 of meaning.
 
 Atoms are:
+
 - Typed
 - Immutable
 - Semantically meaningful
 - Independently reusable across entities
 
 A clear taxonomy is required to:
+
 - Ensure consistent interpretation
 - Enable safe deduplication
 - Preserve correctness across snapshots
@@ -57,6 +61,7 @@ A clear taxonomy is required to:
 An atom represents a single, typed, immutable value.
 
 An atom is defined by:
+
 - A **tag** (semantic label)
 - A **type**
 - A **normalized value**
@@ -69,7 +74,7 @@ Atoms have no identity beyond their semantic content.
 
 Atom identity is derived exclusively from semantic fields:
 
-```
+```text
 (tag, type, normalized_value)
 ```
 
@@ -77,6 +82,7 @@ If two atoms share the same identity tuple, they are considered identical and
 must be represented by the same atom instance.
 
 Atoms:
+
 - Do not contain entity identifiers
 - Do not contain reference counts
 - Do not encode usage context
@@ -92,12 +98,14 @@ Atoms are classified by their semantic role and value domain.
 Scalar atoms represent indivisible primitive values.
 
 Examples:
+
 - Numeric values
 - Strings
 - Booleans
 - Timestamps
 
 Properties:
+
 - Single normalized value
 - No internal structure
 
@@ -109,11 +117,13 @@ Structured atoms represent values with internal composition that is treated
 as a single semantic unit.
 
 Examples:
+
 - Composite identifiers
 - Encoded ranges
 - Structured literals
 
 Properties:
+
 - Internally structured
 - Semantically atomic at the system level
 
@@ -125,11 +135,13 @@ Reference atoms represent identifiers or keys that refer to external or logical
 concepts.
 
 Examples:
+
 - External IDs
 - Logical keys
 - Namespace-qualified identifiers
 
 Properties:
+
 - Value interpreted as a reference
 - No dereferencing at the atom level
 
@@ -140,11 +152,13 @@ Properties:
 All atoms undergo normalization before identity computation.
 
 Normalization ensures:
+
 - Canonical representation
 - Deterministic equality
 - Stable deduplication
 
 Examples of normalization:
+
 - String trimming and casing rules
 - Numeric canonicalization
 - Timestamp normalization
@@ -169,6 +183,7 @@ Atoms are never updated, deleted, or invalidated.
 ## 4.6 Atom Semantics and Usage
 
 Atoms:
+
 - Are passive data carriers
 - Do not encode behavior
 - Do not track relationships
@@ -195,11 +210,13 @@ Violating these invariants breaks deduplication and snapshot correctness.
 ## 6. Trade-offs & Limitations
 
 ### Trade-offs
+
 - Strict immutability increases indirection
 - Normalization adds upfront processing cost
 - Atom schema evolution requires care
 
 ### Limitations
+
 - Atom types must be defined ahead of time
 - Changes to normalization rules are backward-sensitive
 - Complex semantics must be modeled outside atoms
