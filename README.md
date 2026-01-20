@@ -4,13 +4,13 @@ GTAF is a **universal data model and storage framework** designed to represent h
 
 GTAF separates **identity from value**, preserves **logical history**, supports **selective deduplication**, and integrates **graph and vector semantics** — without falling into the common traps of naïve immutable or content-addressed systems.
 
-📄 See `WHITEPAPER.md` for the full technical specification and design rationale.
+📄 See [docs/](docs/) for architecture, design documents, and specifications.
 
 ---
 
 ## Core Principles
 
-GTAF is built on five non-negotiable principles:
+GTAF is built on five principles:
 
 1. **Identity is separate from value**
 2. **Values are strongly typed**
@@ -22,15 +22,61 @@ GTAF is built on five non-negotiable principles:
 
 ## Core Concepts
 
+```mermaid
+flowchart TD
+    subgraph Storage["Storage Layer"]
+        AS[AtomStore]
+        RI[Reference Index]
+        CI[Content Index]
+    end
+
+    subgraph Data["Data Model"]
+        A1[Atom]
+        A2[Atom]
+        A3[Atom]
+        EID[EntityId]
+    end
+
+    subgraph Projection["Projection Layer"]
+        PE[ProjectionEngine]
+        N[Node]
+    end
+
+    A1 -->|references| EID
+    A2 -->|references| EID
+    A3 -->|references| EID
+
+    AS -->|stores| A1
+    AS -->|stores| A2
+    AS -->|stores| A3
+
+    RI -->|maps entity → atoms| EID
+    CI -->|deduplicates| A1
+
+    PE -->|rebuilds from atoms| N
+    EID -.->|projects to| N
+```
+
+### EntityId
+
+An **EntityId** is a stable 16-byte identifier for a logical entity (e.g. Customer, Recipe, Sensor).
+
+EntityIds:
+
+- Are immutable and globally unique
+- Represent pure identity (no behavior or state)
+- Are referenced by atoms via the Reference Index
+
 ### Node
 
-A **Node** represents identity (e.g. Customer, Recipe, Sensor).
+A **Node** is an ephemeral projection of an entity's current state, rebuilt on-demand from the atom log.
 
 Nodes:
 
-- Have stable IDs
-- Do not store values directly
-- Reference values via properties
+- Are derived views, not stored directly
+- Aggregate atoms by type tag (latest value per tag)
+- Maintain history references for temporal queries
+- Are rebuilt by the ProjectionEngine
 
 ---
 
@@ -98,13 +144,20 @@ Node ── property ──▶ Atom
 
 ### Edge
 
-An **Edge** is an explicit relationship between Nodes.
+An **Edge** is a relationship between entities, stored as a Canonical atom containing an EdgeValue.
 
-Edges are used for:
+```cpp
+struct EdgeValue {
+    EntityId target;
+    std::string relation;
+};
+```
 
-- Graph traversal
-- Domain relationships
-- Structural modeling
+Edges:
+
+- Are atoms (benefit from deduplication and history)
+- Link a source entity to a target entity with a named relation
+- Support bidirectional queries via the Reference Index
 
 ---
 
@@ -130,30 +183,35 @@ Edges are used for:
 
 ## Query Model
 
-GTAF supports **hybrid querying** over materialized projections:
+GTAF supports querying through the QueryIndex and ProjectionEngine:
 
-- Structured filters
-- Relationship traversal
-- Aggregations
+**Implemented:**
+
+- Tag-based filtering (find atoms by type tag)
+- Entity lookups (get all atoms for an entity)
+- Node projection (rebuild current state from atom log)
+- History queries (access previous values via LSN ordering)
+
+**Planned:**
+
+- Graph traversal queries
 - Vector similarity search
-
-Examples:
-FIND Customer WHERE status = "active"
-TRAVERSE Order FROM Customer:123
-VECTOR_SIMILAR("industrial equipment buyer") TOP 10
+- Hybrid query engine combining structured and semantic search
 
 ---
 
-## Vector Search (Corrected Model)
+## Vector Search (Planned)
 
-Vector embeddings are **decoupled from atom immutability**.
+Vector embeddings can be stored as atom values, but similarity search is not yet implemented.
 
-- Atoms reference a stable vector handle
-- Vectors may be updated or versioned
-- Index compaction happens asynchronously
-- High write rates do not cause index churn
+**Design goals:**
 
-This aligns GTAF with production vector systems (HNSW-based).
+- Decouple embeddings from atom immutability
+- Support stable vector handles with versioning
+- Asynchronous index compaction
+- Avoid index churn from high write rates
+
+See [docs/design/](docs/design/) for current design discussions.
 
 ---
 
@@ -180,27 +238,45 @@ This aligns GTAF with production vector systems (HNSW-based).
 - **CRM / ERP**  
   Canonical atoms for identity, temporal atoms for activity, mutable atoms for aggregates
 
-- **Recipe / Content Platforms**  
+- **AI / RAG Systems**  
+  Structured truth + semantic embeddings in one model
+
+- **Content Platforms**  
   Canonical atoms + graph relationships
 
 - **IoT / Telemetry**  
   Chunked temporal atoms + analytical projections
 
-- **AI / RAG Systems**  
-  Structured truth + semantic embeddings in one model
 
 ---
 
 ## Project Status
 
-🚧 **Design-first, early implementation phase**
+🚧 **Active development — core implementation complete**
 
-Current focus:
+### What's Working
 
-- Finalizing core spec
-- Formalizing atom taxonomy
-- Defining write/read pipelines
-- Building a minimal reference implementation
+- ✅ Atom storage with three classifications (Canonical, Temporal, Mutable)
+- ✅ Content-addressed deduplication for Canonical atoms
+- ✅ Append-only persistence with WAL
+- ✅ Node projection from atom log
+- ✅ Entity-Atom reference indexing
+- ✅ Query index with tag-based filtering
+- ✅ Temporal chunking for time-series data
+- ✅ Delta-logged mutable state with snapshots
+- ✅ Edge storage as Canonical atoms
+
+### In Progress
+
+- 🔄 Multi-reader concurrency (currently single-threaded)
+- 🔄 Compaction and cleanup strategies
+
+### Planned
+
+- 📋 Vector similarity search (embeddings can be stored, search not implemented)
+- 📋 Graph traversal queries
+- 📋 Hybrid query engine
+- 📋 Storage engine optimizations
 
 ---
 
@@ -210,9 +286,17 @@ Apache 2.0 (proposed)
 
 ---
 
-## Vision
+## Documentation
 
-> GTAF aims to be an **operating system for data** —  
-> preserving truth, enabling scale, and remaining honest about physics.
+- [Architecture](docs/architecture/) — System structure and pipelines
+- [Design](docs/design/) — Internal design and implementation details
+- [Specifications](docs/specs/) — Contracts and expected behavior
+- [ADRs](docs/adr/) — Architecture Decision Records
 
-See `WHITEPAPER.md` for the full corrected architecture.
+Key documents:
+
+- [Atom-Node Design](docs/design/atom-node-design.md) — Core data model relationships
+- [Write-Read Pipelines](docs/architecture/write-read-pipelines.md) — Data flow architecture
+- [Entity Deduplication](docs/architecture/entity-deduplication.md) — Content-addressed storage
+
+
