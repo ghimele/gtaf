@@ -57,8 +57,7 @@ GTAF addresses these problems through four core principles:
 ### 3.1 Problem Statement
 
 | Problem | Description |
-|---------|-------------|
-
+| ------- | ----------- |
 | Schema Rigidity | Relational and document databases require early schema commitment |
 | Data Fragmentation | Same facts duplicated across systems with no shared identity |
 | Auditability | Most systems overwrite values, losing historical truth |
@@ -165,8 +164,7 @@ An Edge is an explicit relationship between Nodes via `EdgeValue`.
 ### 4.2 Value Types
 
 | Type | Description | Example |
-|------|-------------|---------|
-
+| ---- | ----------- | ------- |
 | `bool` | Boolean | `true`, `false` |
 | `int64_t` | 64-bit signed integer | `42`, `-1000` |
 | `double` | 64-bit floating point | `3.14159` |
@@ -216,8 +214,7 @@ The `ENTITY_REF` layer enables:
 #### 4.4.2 Deduplication Semantics
 
 | Atom Class | Deduplicated | Rationale |
-|------------|--------------|-----------|
-
+| ---------- | ------------ | --------- |
 | Canonical | Yes | Content-addressed, semantic reuse |
 | Temporal | No | Avoids write amplification for streams |
 | Mutable | No | Identity-based, changes in place |
@@ -239,8 +236,7 @@ A Node projection provides:
 #### 4.5.2 Projection Operations
 
 | Operation | Description | Complexity |
-|-----------|-------------|------------|
-
+| --------- | ----------- | ---------- |
 | `rebuild(entity)` | Single entity projection | O(atoms for entity) |
 | `rebuild_all()` | All entities in one pass | O(total atoms) |
 | `rebuild_all_streaming()` | Memory-bounded streaming | O(total atoms), bounded memory |
@@ -253,8 +249,7 @@ Queries operate on materialized projections, not raw atom pointers.
 #### 4.6.1 Implemented Query Capabilities
 
 | Capability | API | Complexity |
-|------------|-----|------------|
-
+| ---------- | --- | ---------- |
 | Property lookup | `Node::get(tag)` | O(1) |
 | All properties | `Node::get_all()` | O(properties) |
 | Entity history | `Node::history()` | O(history length) |
@@ -304,8 +299,7 @@ Current implementation uses binary file format with:
 #### 4.8.2 Persisted State
 
 | Component | Preserved |
-|-----------|-----------|
-
+| --------- | --------- |
 | Atom content and metadata | ✓ |
 | Entity-atom associations | ✓ |
 | Per-entity LSNs | ✓ |
@@ -334,8 +328,7 @@ On load, indexes are automatically rebuilt via `rebuild_indexes()`.
 ### 5.2 Performance Invariants
 
 | Operation | Guarantee |
-|-----------|-----------|
-
+| --------- | --------- |
 | Canonical append | O(1) with hash lookup |
 | Temporal append | O(1) to active chunk |
 | Mutable update | O(1) delta log |
@@ -355,8 +348,7 @@ On load, indexes are automatically rebuilt via `rebuild_indexes()`.
 ### 6.1 Design Trade-offs
 
 | Trade-off | Decision | Rationale |
-|-----------|----------|-----------|
-
+| --------- | -------- | --------- |
 | Deduplication scope | Canonical only | Avoids write amplification for streams |
 | Conflict resolution | LSN-based latest-wins | Simple, deterministic, fits append-only model |
 | Projection rebuild | Full scan | Enables streaming, avoids complex indexes |
@@ -364,8 +356,7 @@ On load, indexes are automatically rebuilt via `rebuild_indexes()`.
 ### 6.2 Current Limitations
 
 | Limitation | Status | Priority |
-|------------|--------|----------|
-
+| ---------- | ------ | -------- |
 | No constraint validation | Not implemented | P0 |
 | Vector search | Storage only | P0 |
 | Transaction support | Minimal (auto-commit) | P1 |
