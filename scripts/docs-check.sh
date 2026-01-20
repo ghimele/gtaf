@@ -94,7 +94,7 @@ echo
 # ---------------------------------------------
 echo "== Running markdownlint =="
 
-npx markdownlint-cli2 "**/*.md"
+npx markdownlint-cli2 "**/*.md" "#.github/"
 
 echo
 echo "All documentation checks passed."
