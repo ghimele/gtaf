@@ -329,10 +329,6 @@ private:
     // Used for all atom types to enable efficient lookup
     std::unordered_map<types::AtomId, size_t, AtomIdHash> m_content_index;
 
-    // Deduplication map: hash -> index in m_atoms
-    // Only used for Canonical atoms (DEPRECATED - merged with m_content_index)
-    // TODO: Remove m_canonical_dedup_map after verifying m_content_index works
-    std::unordered_map<types::AtomId, size_t, AtomIdHash> m_canonical_dedup_map;
 
     // ===== REFERENCE LAYER (Entity-Atom Associations) =====
 
