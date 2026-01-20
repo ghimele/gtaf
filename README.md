@@ -247,7 +247,6 @@ See [docs/design/](docs/design/) for current design discussions.
 - **IoT / Telemetry**  
   Chunked temporal atoms + analytical projections
 
-
 ---
 
 ## Project Status
@@ -298,5 +297,3 @@ Key documents:
 - [Atom-Node Design](docs/design/atom-node-design.md) — Core data model relationships
 - [Write-Read Pipelines](docs/architecture/write-read-pipelines.md) — Data flow architecture
 - [Entity Deduplication](docs/architecture/entity-deduplication.md) — Content-addressed storage
-
-
