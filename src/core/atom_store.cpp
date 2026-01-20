@@ -62,7 +62,7 @@ AtomStore::Stats AtomStore::get_stats() const {
     stats.total_atoms = m_atoms.size();
     stats.canonical_atoms = m_canonical_atom_count;
     stats.deduplicated_hits = m_dedup_hits;
-    stats.unique_canonical_atoms = m_canonical_dedup_map.size();
+    stats.unique_canonical_atoms = m_canonical_atom_count;
     stats.total_entities = m_entity_refs.size();
 
     // Count total references across all entities
@@ -91,8 +91,7 @@ size_t AtomStore::append_batch(const std::vector<BatchAtom>& atoms) {
 
     // Pre-reserve hash maps to avoid rehashing during batch
     size_t estimated_new_atoms = atoms.size() / 2;
-    if (m_canonical_dedup_map.bucket_count() < m_canonical_dedup_map.size() + estimated_new_atoms) {
-        m_canonical_dedup_map.reserve(m_canonical_dedup_map.size() + estimated_new_atoms);
+    if (m_content_index.bucket_count() < m_content_index.size() + estimated_new_atoms) {
         m_content_index.reserve(m_content_index.size() + estimated_new_atoms);
         m_refcounts.reserve(m_refcounts.size() + estimated_new_atoms);
     }
@@ -112,7 +111,7 @@ size_t AtomStore::append_batch(const std::vector<BatchAtom>& atoms) {
         types::AtomId atom_id = types::compute_content_hash(batch_atom.tag, batch_atom.value);
 
         // Use insert to do lookup + insert in ONE operation (critical optimization)
-        auto [it, inserted] = m_canonical_dedup_map.try_emplace(atom_id, m_atoms.size());
+        auto [it, inserted] = m_content_index.try_emplace(atom_id, m_atoms.size());
 
         // Generate LSN
         types::LogSequenceNumber lsn{++m_next_lsn};
@@ -129,7 +128,6 @@ size_t AtomStore::append_batch(const std::vector<BatchAtom>& atoms) {
                 batch_atom.value,
                 batch_timestamp
             );
-            m_content_index.emplace(atom_id, it->second);
             m_refcounts.emplace(atom_id, 1);
             ++m_canonical_atom_count;
             ++stored_count;
@@ -156,7 +154,6 @@ void AtomStore::reserve(size_t atom_count, size_t entity_count) {
     m_atoms.reserve(atom_count);
 
     // Pre-reserve all hash maps to avoid rehashing during bulk import
-    m_canonical_dedup_map.reserve(atom_count);
     m_content_index.reserve(atom_count);
     m_refcounts.reserve(atom_count);
 
@@ -175,7 +172,7 @@ Atom AtomStore::append_canonical(
 
     // Check for existing atom with same hash (deduplication)
     bool is_new_atom = false;
-    if (auto it = m_canonical_dedup_map.find(atom_id); it != m_canonical_dedup_map.end()) {
+    if (auto it = m_content_index.find(atom_id); it != m_content_index.end()) {
         // Content already exists - increment refcount and add entity reference
         ++m_dedup_hits;
         ++m_refcounts[atom_id];
@@ -200,18 +197,17 @@ Atom AtomStore::append_canonical(
             now
         );
 
-        // Store in log, content index, and dedup map
+        // Store in log and content index
         size_t index = m_atoms.size();
         m_atoms.push_back(atom);
         m_content_index[atom_id] = index;
-        m_canonical_dedup_map[atom_id] = index;
         m_refcounts[atom_id] = 1;
         ++m_canonical_atom_count;
 
         return atom;
     } else {
         // Return existing atom
-        return m_atoms[m_canonical_dedup_map[atom_id]];
+        return m_atoms[m_content_index[atom_id]];
     }
 }
 
@@ -557,7 +553,6 @@ bool AtomStore::load(const std::string& filepath) {
         // Clear current state
         m_atoms.clear();
         m_content_index.clear();
-        m_canonical_dedup_map.clear();
         m_entity_refs.clear();
         m_refcounts.clear();
         m_active_chunks.clear();
@@ -575,7 +570,6 @@ bool AtomStore::load(const std::string& filepath) {
         // Pre-reserve all hash maps to avoid rehashing during load
         m_atoms.reserve(atom_count);
         m_content_index.reserve(atom_count);
-        m_canonical_dedup_map.reserve(atom_count);
 
         // Track canonical atoms during load (avoids rebuild_indexes scan)
         m_canonical_atom_count = 0;
@@ -596,7 +590,6 @@ bool AtomStore::load(const std::string& filepath) {
             // Build indexes inline during load (faster than separate rebuild pass)
             m_content_index.emplace(atom_id, i);
             if (type == types::AtomType::Canonical) {
-                m_canonical_dedup_map.emplace(atom_id, i);
                 ++m_canonical_atom_count;
             }
 
@@ -692,21 +685,21 @@ void AtomStore::rebuild_indexes() {
     for (size_t i = 0; i < m_atoms.size(); ++i) {
         const auto& atom = m_atoms[i];
 
-        // Rebuild canonical dedup map
-        if (atom.classification() == types::AtomType::Canonical) {
-            // Only index if this is the first occurrence
-            if (m_canonical_dedup_map.find(atom.atom_id()) == m_canonical_dedup_map.end()) {
-                m_canonical_dedup_map[atom.atom_id()] = i;
+        // Rebuild content index
+        if (m_content_index.find(atom.atom_id()) == m_content_index.end()) {
+            m_content_index[atom.atom_id()] = i;
+            if (atom.classification() == types::AtomType::Canonical) {
                 ++m_canonical_atom_count;
-            } else {
+            }
+        } else {
+            if (atom.classification() == types::AtomType::Canonical) {
                 ++m_dedup_hits;
             }
         }
 
         // Note: We don't rebuild temporal chunks or mutable states on load
         // because they're ephemeral/derived structures. If needed, they can
-        // be reconstructed by re-appending temporal/mutable atoms, but for
-        // simple persistence we only need the canonical dedup map.
+        // be reconstructed by re-appending temporal/mutable atoms.
     }
 }
 
