@@ -25,5 +25,6 @@
   "MD034": true,
   "MD036": false,
   "MD040": true,
-  "MD041": true
+  "MD041": true,
+  "MD060": { "style": "compact","aligned_delimiter": true  }
 }

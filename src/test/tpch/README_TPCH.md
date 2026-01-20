@@ -95,8 +95,7 @@ cmake --build build
 ### Scale Factor 1 (SF1)
 
 | Metric | Expected Value |
-|--------|----------------|
-
+| ------ | -------------- |
 | **Dataset Size** | ~1 GB raw, ~800 MB imported |
 | **Total Rows** | 8.66 million |
 | **Import Time** | 60-120 seconds |
@@ -108,8 +107,7 @@ cmake --build build
 ### Scale Factor 10 (SF10)
 
 | Metric | Expected Value |
-|--------|----------------|
-
+| ------ | -------------- |
 | **Dataset Size** | ~10 GB raw, ~8 GB imported |
 | **Total Rows** | 86.6 million |
 | **Import Time** | 10-20 minutes |

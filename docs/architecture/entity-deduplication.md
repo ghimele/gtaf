@@ -112,6 +112,69 @@ An entity may reference multiple atoms.
 
 This ensures that deduplication never removes information.
 
+#### Deduplication Flow Diagram
+
+```mermaid
+sequenceDiagram
+    participant Entity
+    participant AtomStore
+    participant ContentIndex
+    participant RefIndex as Reference Index
+
+    Entity->>AtomStore: emit(tag, value, type)
+    AtomStore->>AtomStore: Compute identity hash(tag, value, type)
+    AtomStore->>ContentIndex: Lookup by identity
+
+    alt Atom exists
+        ContentIndex-->>AtomStore: Return existing atom_id
+    else New atom
+        AtomStore->>AtomStore: Create atom with new atom_id
+        AtomStore->>ContentIndex: Store (identity → atom_id)
+    end
+
+    AtomStore->>RefIndex: Append (entity_id, atom_id)
+    Note over RefIndex: Reference always appended<br/>regardless of dedup result
+    AtomStore-->>Entity: Return atom_id
+```
+
+#### Multiple Entities Sharing Atoms
+
+```mermaid
+flowchart LR
+    subgraph Entities["Entities"]
+        E1[("entity_1")]
+        E2[("entity_2")]
+        E3[("entity_3")]
+    end
+
+    subgraph ContentStore["Content Store (Deduplicated)"]
+        A1["Atom A<br/>(tag: status, value: 'active')"]
+        A2["Atom B<br/>(tag: status, value: 'inactive')"]
+        A3["Atom C<br/>(tag: name, value: 'Alice')"]
+    end
+
+    subgraph RefIndex["Reference Index (Append-Only)"]
+        R1["(entity_1, Atom A)"]
+        R2["(entity_2, Atom A)"]
+        R3["(entity_3, Atom B)"]
+        R4["(entity_1, Atom C)"]
+    end
+
+    E1 --> R1
+    E2 --> R2
+    E3 --> R3
+    E1 --> R4
+
+    R1 --> A1
+    R2 --> A1
+    R3 --> A2
+    R4 --> A3
+
+    style A1 fill:#4A7A4A
+```
+
+> In this example, entity_1 and entity_2 both reference Atom A (status: 'active'). The atom is stored once, but both entity relationships are preserved in the Reference Index.
+
 ---
 
 ### 4.5 Snapshot and Read Semantics
@@ -164,7 +227,8 @@ These trade-offs are accepted to preserve auditability and correctness.
 
 ## 7. References
 
-- ADR-001: Append-only Persistence
-- ADR-004: Separate Entity–Atom Reference Index
-- docs/design/atom-taxonomy.md
-- docs/design/constraints-plan.md
+- [ADR-001: Append-Only Atom Log](../adr/001-append-only-atom-log.md)
+- [ADR-004: Entity-Atom Reference Index](../adr/004-entity-atom-reference-index.md)
+- [Design: Atom-Node Relationship](../design/atom-node-design.md)
+- [Design: Atom Taxonomy](../design/atom-taxonomy.md)
+- [Design: Constraints Plan](../design/constraints-plan.md)
