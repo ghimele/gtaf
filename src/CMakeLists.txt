@@ -76,11 +76,33 @@ add_executable(gtaf_query_workrequest
 
 target_link_libraries(gtaf_query_workrequest PRIVATE gtaf_lib)
 
+add_executable(gtaf_cli
+  example/gtaf_cli.cpp
+)
+
+target_link_libraries(gtaf_cli PRIVATE gtaf_lib)
+
 add_executable(gtaf_query_workrequest_indexed
   example/query_workrequest_indexed.cpp
 )
 
 target_link_libraries(gtaf_query_workrequest_indexed PRIVATE gtaf_lib)
+
+add_executable(gtaf-cli
+  cli/main.cpp
+  cli/types.h
+  cli/parser/parser.h
+  cli/parser/parser.cpp
+  cli/session/session.h
+  cli/executor/executor.h
+  cli/executor/executor.cpp
+  cli/frontends/argv.h
+  cli/frontends/argv.cpp
+  cli/frontends/repl.h
+  cli/frontends/repl.cpp
+)
+
+target_link_libraries(gtaf-cli PRIVATE gtaf_lib)
 
 # ------------------------------------------------------------
 # TPC-H Benchmark Tools
