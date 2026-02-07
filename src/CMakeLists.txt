@@ -100,6 +100,13 @@ add_executable(gtaf-cli
   cli/frontends/argv.cpp
   cli/frontends/repl.h
   cli/frontends/repl.cpp
+  cli/commands/command_base.h
+  cli/commands/stats_command.h
+  cli/commands/stats_command.cpp
+  cli/commands/load_command.h
+  cli/commands/load_command.cpp
+  cli/commands/save_command.h
+  cli/commands/save_command.cpp
 )
 
 target_link_libraries(gtaf-cli PRIVATE gtaf_lib)
@@ -156,6 +163,8 @@ add_executable(gtaf_test
   test/test_atom_store.cpp
   test/test_persistence.cpp
   test/test_node.cpp
+  test/test_cli_parser.cpp
+  cli/parser/parser.cpp
 )
 
 target_link_libraries(gtaf_test PRIVATE gtaf_lib)

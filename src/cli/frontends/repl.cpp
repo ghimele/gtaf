@@ -11,12 +11,19 @@ void ReplFrontend::run() {
     std::cout << "GTAF CLI - Interactive Mode" << std::endl;
     std::cout << "Type 'help' for available commands or 'exit' to quit." << std::endl << std::endl;
     
-    // Main REPL loop - continues until exit command
+    // Main REPL loop - continues until exit command or EOF
     while (true) {
         print_prompt();
         
         // Read user input
         std::string input = read_line();
+
+        // If user sent EOF (e.g., Ctrl-D), exit REPL
+        if (std::cin.eof()) {
+            std::cout << "Goodbye!" << std::endl;
+            break;
+        }
+
         if (input.empty()) {
             // Empty input - just show prompt again
             continue;
@@ -33,10 +40,13 @@ void ReplFrontend::run() {
         
         // Execute command using shared executor with persistent session
         auto result = m_executor.execute(cmd, m_session);
-        
+
+        // Store last exit code, keep it in 0..255 for POSIX compatibility
+        m_last_exit_code = (result.exit_code & 0xFF);
+
         // Display results based on success/failure
         // Note: Errors in REPL don't terminate the session
-        if (result.exit_code == 0) {
+        if (m_last_exit_code == 0) {
             print_output(result);
         } else {
             print_error(result);

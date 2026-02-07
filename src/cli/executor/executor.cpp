@@ -17,18 +17,18 @@ Result CommandExecutor::execute(const Command& cmd, Session& session) {
     if (cmd.name.empty()) {
         return Result::failure("No command provided");
     }
-    
-    // Find registered handler for the command
-    auto it = m_handlers.find(cmd.name);
-    if (it == m_handlers.end()) {
+
+    // Find registered command
+    auto it = m_commands.find(cmd.name);
+    if (it == m_commands.end()) {
         std::ostringstream oss;
         oss << "Unknown command: '" << cmd.name << "'";
         return Result::failure(oss.str());
     }
-    
+
     // Execute the handler with exception safety
     try {
-        return it->second(cmd, session);
+        return it->second.handler(cmd, session);
     } catch (const std::exception& e) {
         std::ostringstream oss;
         oss << "Error executing command '" << cmd.name << "': " << e.what();
@@ -36,41 +36,63 @@ Result CommandExecutor::execute(const Command& cmd, Session& session) {
     }
 }
 
-void CommandExecutor::register_command(const std::string& name, CommandHandler handler) {
-    // Move handler into registry to avoid copying
-    m_handlers[name] = std::move(handler);
+void CommandExecutor::register_command(const std::string& name, const std::string& description, CommandHandler handler) {
+    m_commands[name] = CommandInfo{std::move(handler), description};
+}
+
+void CommandExecutor::register_command(std::shared_ptr<CommandBase> command) {
+    // Capture shared_ptr by value to ensure command object lifetime
+    auto cmd_ptr = command;
+    register_command(
+        command->name(),
+        command->description(),
+        [cmd_ptr](const Command& cmd, Session& session) {
+            return cmd_ptr->execute(cmd, session);
+        }
+    );
 }
 
 std::vector<std::string> CommandExecutor::get_registered_commands() const {
     std::vector<std::string> commands;
-    
+
     // Extract command names from registry
-    for (const auto& pair : m_handlers) {
-        commands.push_back(pair.first);
+    for (const auto& [name, info] : m_commands) {
+        commands.push_back(name);
     }
-    
+
     // Sort for consistent ordering in help output
     std::sort(commands.begin(), commands.end());
     return commands;
 }
 
+std::string CommandExecutor::get_command_description(const std::string& name) const {
+    auto it = m_commands.find(name);
+    if (it != m_commands.end()) {
+        return it->second.description;
+    }
+    return "";
+}
+
 // ---- Initialization ----
 
 void CommandExecutor::register_builtin_commands() {
-    // Register built-in commands using lambda captures to member methods
-    // This pattern ensures proper lifetime management and clean delegation
-    
-    register_command("help", [this](const Command& cmd, Session& session) {
-        return handle_help(cmd, session);
-    });
-    
-    register_command("verbose", [this](const Command& cmd, Session& session) {
-        return handle_verbose(cmd, session);
-    });
-    
-    register_command("format", [this](const Command& cmd, Session& session) {
-        return handle_format(cmd, session);
-    });
+    // Register built-in commands with descriptions
+    // Descriptions are stored alongside handlers for use in help output
+
+    register_command("help", "Show available commands and their descriptions",
+        [this](const Command& cmd, Session& session) {
+            return handle_help(cmd, session);
+        });
+
+    register_command("verbose", "Toggle verbose output (use --on/--off for explicit control)",
+        [this](const Command& cmd, Session& session) {
+            return handle_verbose(cmd, session);
+        });
+
+    register_command("format", "Set output format: format <human|json|csv>",
+        [this](const Command& cmd, Session& session) {
+            return handle_format(cmd, session);
+        });
 }
 
 // ---- Built-in Command Handlers ----
@@ -78,24 +100,19 @@ void CommandExecutor::register_builtin_commands() {
 Result CommandExecutor::handle_help(const Command& cmd, Session& session) {
     std::ostringstream oss;
     oss << "GTAF CLI - Available commands:\n\n";
-    
-    // Get sorted list of all commands
+
+    // Get sorted list of all commands and their descriptions
     auto commands = get_registered_commands();
     for (const auto& command : commands) {
         oss << "  " << command;
-        
-        // Add brief descriptions for built-in commands
-        // Future: command descriptions could be stored with handlers
-        if (command == "help") {
-            oss << " - Show this help message";
-        } else if (command == "verbose") {
-            oss << " - Toggle verbose output";
-        } else if (command == "format") {
-            oss << " - Set output format (human|json|csv)";
+
+        auto description = get_command_description(command);
+        if (!description.empty()) {
+            oss << " - " << description;
         }
         oss << "\n";
     }
-    
+
     return Result::success(oss.str());
 }
 
@@ -128,7 +145,7 @@ Result CommandExecutor::handle_format(const Command& cmd, Session& session) {
         }
         return Result::success(oss.str());
     }
-    
+
     // Parse and set new format
     const std::string& format_str = cmd.positionals[0];
     if (format_str == "human") {

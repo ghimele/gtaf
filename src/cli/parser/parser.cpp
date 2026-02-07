@@ -1,6 +1,7 @@
 #include "parser.h"
 #include <sstream>
 #include <algorithm>
+#include <cctype>
 
 namespace gtaf::cli {
 
@@ -31,16 +32,63 @@ std::vector<std::string> Parser::tokenize_argv(int argc, char* argv[]) {
 
 std::vector<std::string> Parser::tokenize_string(const std::string& input) {
     std::vector<std::string> tokens;
-    std::istringstream stream(input);
-    std::string token;
-    
-    // Simple whitespace-based tokenization
-    // Note: This doesn't handle quoted strings or escaping
-    // Future enhancement could use more sophisticated parsing
-    while (stream >> token) {
-        tokens.emplace_back(token);
+    std::string current_token;
+    bool in_single_quote = false;
+    bool in_double_quote = false;
+    bool escape_next = false;
+    bool token_started = false;  // Track if we've started a token (for empty quotes)
+
+    for (size_t i = 0; i < input.size(); ++i) {
+        char c = input[i];
+
+        // Handle escape sequences
+        if (escape_next) {
+            current_token += c;
+            token_started = true;
+            escape_next = false;
+            continue;
+        }
+
+        // Backslash escapes next character (only outside single quotes)
+        if (c == '\\' && !in_single_quote) {
+            escape_next = true;
+            continue;
+        }
+
+        // Handle single quotes (no escape processing inside)
+        if (c == '\'' && !in_double_quote) {
+            in_single_quote = !in_single_quote;
+            token_started = true;  // Opening quote starts a token
+            continue;
+        }
+
+        // Handle double quotes
+        if (c == '"' && !in_single_quote) {
+            in_double_quote = !in_double_quote;
+            token_started = true;  // Opening quote starts a token
+            continue;
+        }
+
+        // Whitespace outside quotes ends current token
+        if (std::isspace(static_cast<unsigned char>(c)) && !in_single_quote && !in_double_quote) {
+            if (token_started) {
+                tokens.emplace_back(std::move(current_token));
+                current_token.clear();
+                token_started = false;
+            }
+            continue;
+        }
+
+        // Regular character - add to current token
+        current_token += c;
+        token_started = true;
     }
-    
+
+    // Don't forget the last token
+    if (token_started) {
+        tokens.emplace_back(std::move(current_token));
+    }
+
     return tokens;
 }
 
@@ -64,9 +112,15 @@ Command Parser::parse_tokens(const std::vector<std::string>& tokens) {
         if (is_option(token)) {
             // Handle options (with values) and flags (boolean)
             auto option_name = strip_option_prefix(token);
-            
-            // Check if next token is a value (not another option)
-            if (i + 1 < tokens.size() && !is_option(tokens[i + 1])) {
+
+            // Check for inline --option=value syntax
+            auto eq_pos = option_name.find('=');
+            if (eq_pos != std::string::npos) {
+                // Inline value: --format=json -> options["format"] = "json"
+                auto value = option_name.substr(eq_pos + 1);
+                option_name = option_name.substr(0, eq_pos);
+                cmd.options[option_name] = value;
+            } else if (i + 1 < tokens.size() && !is_option(tokens[i + 1])) {
                 // Option with value: --format json
                 cmd.options[option_name] = tokens[i + 1];
                 ++i; // Skip the value token

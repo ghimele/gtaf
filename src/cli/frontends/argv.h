@@ -19,31 +19,29 @@ namespace gtaf::cli {
 /// behavior with the REPL frontend as required by ADR-006.
 class ArgvFrontend {
 public:
-    /// @brief Default constructor
-    ArgvFrontend() = default;
-    
+    /// @brief Construct with shared parser, executor and session (dependency injection)
+    ArgvFrontend(Parser& parser, CommandExecutor& executor, Session& session) noexcept
+        : m_parser(parser), m_executor(executor), m_session(session) {}
+
+    /// @brief Deleted default constructor to enforce dependency injection
+    ArgvFrontend() = delete;
+
     /// @brief Destructor
     ~ArgvFrontend() = default;
-    
+
     // ---- Public Interface ----
-    
+
     /// @brief Run the CLI with argc/argv arguments
     /// @param argc Argument count from main()
     /// @param argv Argument vector from main()
     /// @return POSIX-compatible exit code (0 for success, non-zero for error)
     int run(int argc, char* argv[]);
-    
+
 private:
-    // ---- Shared Components ----
-    
-    /// @brief Parser for converting argv to Command structure
-    Parser m_parser;
-    
-    /// @brief Executor for command dispatch and execution
-    CommandExecutor m_executor;
-    
-    /// @brief Session instance for this single execution
-    Session m_session;
+    // Use injected/shared components (non-owning)
+    Parser& m_parser;
+    CommandExecutor& m_executor;
+    Session& m_session;
     
     // ---- Output Methods ----
     
