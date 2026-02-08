@@ -13,7 +13,7 @@
 #include "commands/stats_command.h"
 #include "commands/load_command.h"
 #include "commands/save_command.h"
-#include "commands/import_csv_command.h"
+#include "commands/import_command.h"
 #include <iostream>
 #include <string>
 #include <algorithm>

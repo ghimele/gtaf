@@ -108,8 +108,8 @@ add_executable(gtaf-cli
   cli/commands/load_command.cpp
   cli/commands/save_command.h
   cli/commands/save_command.cpp
-  cli/commands/import_csv_command.h
-  cli/commands/import_csv_command.cpp
+  cli/commands/import_command.h
+  cli/commands/import_command.cpp
   core/utility/csv_importer.h
 )
 

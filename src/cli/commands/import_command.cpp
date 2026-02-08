@@ -1,4 +1,4 @@
-#include "import_csv_command.h"
+#include "import_command.h"
 #include "../../core/atom_store.h"
 #include "../../core/utility/csv_importer.h"
 #include <sstream>
@@ -15,6 +15,12 @@ Result ImportCsvCommand::execute(const Command& cmd, Session& session) {
     const std::string& output = cmd.positionals[1];
 
     core::utility::CsvImportOptions opts;
+    // format option: defaults to csv; validate for now
+    std::string format = "csv";
+    if (cmd.options.count("format")) format = cmd.options.at("format");
+    if (format != "csv") {
+        return Result::failure(std::string("Unsupported format: ") + format + ". Supported: csv");
+    }
     if (cmd.options.count("table")) opts.table_name = cmd.options.at("table");
     if (cmd.options.count("key-col")) {
         try { opts.key_column = std::stoi(cmd.options.at("key-col")); } catch(...) { opts.key_column = -1; }

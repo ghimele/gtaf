@@ -6,7 +6,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/gtaf-cli",
-            "args": ["importcsv", "${workspaceFolder}/src/test/tpch/data/region.tbl", "${workspaceFolder}/test.dat", "--delimiter='|'"],
+            "args": ["import", "${workspaceFolder}/src/test/tpch/data/region.tbl", "${workspaceFolder}/test.dat", "--delimiter='|'"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
