@@ -13,6 +13,7 @@
 #include "commands/stats_command.h"
 #include "commands/load_command.h"
 #include "commands/save_command.h"
+#include "commands/import_csv_command.h"
 #include <iostream>
 #include <string>
 #include <algorithm>
@@ -26,6 +27,7 @@ void register_commands(gtaf::cli::CommandExecutor& executor) {
     // Register external commands (add new commands here)
     executor.register_command(std::make_shared<gtaf::cli::LoadCommand>());
     executor.register_command(std::make_shared<gtaf::cli::SaveCommand>());
+    executor.register_command(std::make_shared<gtaf::cli::ImportCsvCommand>());
     // executor.register_command(std::make_shared<gtaf::cli::StatsCommand>());
 }
 

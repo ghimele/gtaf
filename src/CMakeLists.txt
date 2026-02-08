@@ -38,6 +38,7 @@ add_library(gtaf_lib STATIC
   core/temporal_chunk.cpp
   core/mutable_state.cpp
   core/persistence.cpp
+  core/utility/csv_importer.cpp
   # Add more .cpp files here as they are created
 )
 
@@ -107,6 +108,9 @@ add_executable(gtaf-cli
   cli/commands/load_command.cpp
   cli/commands/save_command.h
   cli/commands/save_command.cpp
+  cli/commands/import_csv_command.h
+  cli/commands/import_csv_command.cpp
+  core/utility/csv_importer.h
 )
 
 target_link_libraries(gtaf-cli PRIVATE gtaf_lib)

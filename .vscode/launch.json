@@ -2,6 +2,27 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "(gdb) Launch gtaf-cli importcsv",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/gtaf-cli",
+            "args": ["importcsv", "${workspaceFolder}/src/test/tpch/data/region.tbl", "${workspaceFolder}/test.dat", "--delimiter='|'"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "cmake-build",
+            "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
             "name": "(gdb) Launch gtaf_example",
             "type": "cppdbg",
             "request": "launch",

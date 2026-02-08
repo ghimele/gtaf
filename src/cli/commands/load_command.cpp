@@ -8,7 +8,7 @@ namespace gtaf::cli {
 Result LoadCommand::execute(const Command& cmd, Session& session) {
     // Validate that a file path was provided
     if (cmd.positionals.empty()) {
-        return Result::failure("Usage: load <file_path> [--verbose]");
+        return Result::failure("Usage: " + description());
     }
 
     const std::string& file_path = cmd.positionals[0];
